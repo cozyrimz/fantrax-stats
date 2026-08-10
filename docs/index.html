@@ -3,7 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Fantrax scoring lab</title>
+  <title>Points Planner</title>
+  <meta name="description" content="Explore Fantrax scoring weight changes and see how they affect player value, positional balance, and waiver depth." />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
   <style>
     :root {
@@ -41,7 +42,45 @@
     .wrap { max-width: 1180px; margin: 0 auto; padding: 24px 20px 48px; }
     h1 { font-size: 1.75rem; font-weight: 650; margin: 0 0 6px; }
     h2 { font-size: 1.1rem; font-weight: 600; margin: 0; }
-    .sub { color: var(--muted); font-size: 0.92rem; margin: 0 0 20px; }
+    .sub { color: var(--muted); font-size: 0.92rem; margin: 0 0 12px; }
+    .lead { font-size: 1.05rem; margin: 0 0 14px; max-width: 52rem; }
+    .intro-list {
+      margin: 0 0 16px;
+      padding-left: 1.2rem;
+      color: var(--muted);
+      font-size: 0.88rem;
+      max-width: 52rem;
+    }
+    .intro-list li { margin-bottom: 6px; }
+    .intro-data { font-size: 0.82rem; color: var(--muted); margin: 0 0 20px; }
+    .tip {
+      position: relative;
+      cursor: help;
+      border-bottom: 1px dotted var(--muted);
+    }
+    .tip::after {
+      content: attr(data-tip);
+      position: absolute;
+      left: 0;
+      bottom: calc(100% + 8px);
+      z-index: 20;
+      width: max-content;
+      max-width: 260px;
+      padding: 8px 10px;
+      border-radius: 6px;
+      background: var(--text);
+      color: var(--bg);
+      font-size: 0.75rem;
+      font-weight: 400;
+      line-height: 1.35;
+      white-space: normal;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.12s ease;
+    }
+    .tip:hover::after, .tip:focus-visible::after { opacity: 1; }
+    th .tip { border-bottom-color: currentColor; font-weight: 600; }
+    th .tip::after { left: auto; right: 0; }
     .stats {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -128,8 +167,15 @@
 </head>
 <body>
   <div class="wrap">
-    <h1>Scoring lab</h1>
-    <p class="sub" id="intro"></p>
+    <h1>Points Planner</h1>
+    <p class="lead">Explore scoring changes for your Fantrax league before you edit anything in league settings.</p>
+    <ul class="intro-list">
+      <li>Move the category sliders to see how each stat's weight shifts player value, positional balance, and waiver depth.</li>
+      <li>Presets load the analysis recommendations; you can tweak from there and compare against current scoring.</li>
+      <li>Charts and the top-fifty list follow the season you pick; the position detail table shows every season side by side.</li>
+      <li>All points are recomputed from real per-game logs — when sliders are at their defaults, totals match Fantrax exactly.</li>
+    </ul>
+    <p class="intro-data" id="intro-data"></p>
 
     <div class="stats" id="stats"></div>
 
@@ -202,6 +248,24 @@
     const POS_NAMES = { D: "Defenders", M: "Midfielders", F: "Forwards", G: "Keepers" };
     const POS_COLORS = { D: "#1f77b4", M: "#2ca02c", F: "#d62728", G: "#9467bd" };
     const RANKS = [1, 5, 10, 15, 20, 25, 30, 40, 50, 60, 75, 90, 110];
+
+    const STAT_TIPS = {
+      gini: "How unevenly value is spread above replacement level. 0 means everyone looks the same; higher means a few players dominate.",
+      ratio: "Season points of the #1 player divided by the #50 player in the selected season. Lower means the elite tier is less far ahead.",
+      top10: "What fraction of all points scored by the top fifty players is concentrated in just the top ten. Lower means the elite tier is less top-heavy.",
+      mix: "How many of the top fifty scorers are defenders, midfielders, forwards, and keepers. Compare to your lineup slots (roughly 36% / 36% / 18% / 10%).",
+    };
+
+    const DETAIL_TIPS = {
+      "Starting slots": "How many players at this position all twelve teams must start each week, given your lineup minimums and flex rules.",
+      "Replacement": "Points of the best player at this position who is not a weekly starter — the waiver-wire benchmark.",
+      "Median starter": "Typical points among players who actually start at this position. Usable players are those scoring at least 80% of this.",
+      "Elite mult.": "Average points of the top twelve starters divided by replacement level. Lower means less gap between stars and waiver fodder.",
+      "Usable": "Players scoring at least 80% of a median starter — roughly startable in a pinch.",
+      "Surplus": "Usable players minus starting slots. Positive means more startable options than roster spots demand.",
+      "In top 50": "How many of this season's top fifty scorers play this position under the current weights.",
+      "Move": "Rank change versus current Fantrax scoring in the selected season. Plus means the player rose under your weights.",
+    };
 
     let multipliers = loadJson("scoring-multipliers", {});
     let position = localStorage.getItem("lab-position") || "D";
@@ -326,6 +390,19 @@
       return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;");
     }
 
+    function escAttr(s) {
+      return esc(s).replace(/'/g, "&#39;");
+    }
+
+    function tip(label, hint) {
+      if (!hint) return esc(label);
+      return `<span class="tip" tabindex="0" data-tip="${escAttr(hint)}">${esc(label)}</span>`;
+    }
+
+    function thTip(label, hint, num) {
+      return `<th class="${num ? "num" : ""}">${tip(label, hint)}</th>`;
+    }
+
     function render() {
       const weights = scaleWeights(multipliers);
       const current = analyse(weights, listSeason);
@@ -334,26 +411,26 @@
         analyse(weights, season).positions.map(row => ({ season, ...row }))
       );
 
-      document.getElementById("intro").textContent =
-        `${DATA.playerCount} player-seasons across ${DATA.seasons.join(", ")}, scored with recovered Fantrax weights.`;
+      document.getElementById("intro-data").textContent =
+        `${DATA.playerCount} player-seasons in the dataset (${DATA.seasons.join(", ")}). Headline stats and charts use ${listSeason} unless noted.`;
 
       const giniDelta = delta(current.gini, baseline.gini);
       document.getElementById("stats").innerHTML = `
         <div class="stat ${current.gini < baseline.gini ? "good" : ""}">
           <div class="val">${current.gini.toFixed(3)}</div>
-          <div class="lbl">Value inequality (Gini) · ${giniDelta}</div>
+          <div class="lbl">${tip("Value inequality (Gini)", STAT_TIPS.gini)} · ${giniDelta}</div>
         </div>
         <div class="stat">
           <div class="val">${current.ratio ? current.ratio.toFixed(2) + "x" : "n/a"}</div>
-          <div class="lbl">Best player vs rank 50${current.ratio && baseline.ratio ? " · " + delta(current.ratio, baseline.ratio) : ""}</div>
+          <div class="lbl">${tip("Best player vs rank 50", STAT_TIPS.ratio)}${current.ratio && baseline.ratio ? " · " + delta(current.ratio, baseline.ratio) : ""}</div>
         </div>
         <div class="stat">
           <div class="val">${Math.round(100 * current.top10Share)}%</div>
-          <div class="lbl">Top 10 share of top 50 points</div>
+          <div class="lbl">${tip("Top 10 share of top 50 points", STAT_TIPS.top10)}</div>
         </div>
         <div class="stat">
           <div class="val">${current.positions.map(p => p.inTop50).join(" / ")}</div>
-          <div class="lbl">Top 50 mix (D / M / F / G)</div>
+          <div class="lbl">${tip("Top 50 mix (D / M / F / G)", STAT_TIPS.mix)}</div>
         </div>`;
 
       document.getElementById("pos-tabs").innerHTML = POSITIONS.map(pos =>
@@ -367,7 +444,7 @@
         const cur = Math.round(base * factor * 1000) / 1000;
         const changed = Math.abs(factor - 1) > 0.001;
         return `<div class="slider-row ${changed ? "changed" : ""}">
-          <code>${lever.c}</code>
+          <code title="${escAttr(lever.name)}">${lever.c}</code>
           <input type="range" min="0.1" max="3" step="0.05" value="${factor}"
             data-pos="${position}" data-cat="${lever.c}" />
           <span class="wt">${base} → ${cur}</span>
@@ -384,9 +461,20 @@
       document.getElementById("list-caption").textContent =
         `${DATA.seasonCounts[listSeason] || 0} players in ${listSeason}. Move compares rank against current scoring for that season.`;
 
-      const detailHead = ["Season","Position","Players","Starting slots","Replacement","Median starter","Elite mult.","Usable","Surplus","In top 50"];
+      const detailHead = [
+        ["Season", null, false],
+        ["Position", null, false],
+        ["Players", "Players with enough minutes to appear in this season's pool.", false],
+        ["Starting slots", DETAIL_TIPS["Starting slots"], true],
+        ["Replacement", DETAIL_TIPS["Replacement"], true],
+        ["Median starter", DETAIL_TIPS["Median starter"], true],
+        ["Elite mult.", DETAIL_TIPS["Elite mult."], true],
+        ["Usable", DETAIL_TIPS["Usable"], true],
+        ["Surplus", DETAIL_TIPS["Surplus"], true],
+        ["In top 50", DETAIL_TIPS["In top 50"], true],
+      ];
       document.querySelector("#detail-table thead").innerHTML =
-        "<tr>" + detailHead.map((h, i) => `<th class="${i > 1 ? "num" : ""}">${h}</th>`).join("") + "</tr>";
+        "<tr>" + detailHead.map(([label, hint, num]) => thTip(label, hint, num)).join("") + "</tr>";
       document.querySelector("#detail-table tbody").innerHTML = seasonDetails.map(row => `<tr>
         <td>${esc(row.season)}</td><td>${POS_NAMES[row.pos]}</td>
         <td class="num">${row.players}</td><td class="num">${row.demand}</td>
@@ -396,9 +484,17 @@
         <td class="num">${row.surplus > 0 ? "+" : ""}${row.surplus}</td>
         <td class="num">${row.inTop50}</td></tr>`).join("");
 
-      const topHead = ["#","Player","Position","Type","Games","Points","Move"];
+      const topHead = [
+        ["#", null, true],
+        ["Player", null, false],
+        ["Position", null, false],
+        ["Type", "Playing style cluster derived from per-game stat rates (e.g. creator, stopper).", false],
+        ["Games", "Matches played in this season.", true],
+        ["Points", "Season total under the current slider weights.", true],
+        ["Move", DETAIL_TIPS["Move"], true],
+      ];
       document.querySelector("#top-table thead").innerHTML =
-        "<tr>" + topHead.map((h, i) => `<th class="${i >= 4 ? "num" : ""}">${h}</th>`).join("") + "</tr>";
+        "<tr>" + topHead.map(([label, hint, num]) => thTip(label, hint, num)).join("") + "</tr>";
       document.querySelector("#top-table tbody").innerHTML = current.ranked.slice(0, 50).map((row, i) => {
         const before = baseline.ranked.findIndex(o => o.index === row.index) + 1;
         const move = before - (i + 1);
