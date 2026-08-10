@@ -71,18 +71,20 @@ HTML = r"""<!DOCTYPE html>
     .intro-list li { margin-bottom: 6px; }
     .intro-data { font-size: 0.82rem; color: var(--muted); margin: 0 0 20px; }
     .tip {
-      position: relative;
+      display: inline-block;
       cursor: help;
       border-bottom: 1px dotted var(--muted);
     }
-    .tip::after {
-      content: attr(data-tip);
-      position: absolute;
-      left: 0;
-      bottom: calc(100% + 8px);
-      z-index: 20;
-      width: max-content;
-      max-width: 260px;
+    .slider-row .tip {
+      font-family: var(--mono);
+      font-size: 0.82rem;
+      border-bottom-style: dashed;
+    }
+    th .tip { border-bottom-color: currentColor; font-weight: 600; }
+    #float-tip {
+      position: fixed;
+      z-index: 9999;
+      max-width: 280px;
       padding: 8px 10px;
       border-radius: 6px;
       background: var(--text);
@@ -90,26 +92,10 @@ HTML = r"""<!DOCTYPE html>
       font-size: 0.75rem;
       font-weight: 400;
       line-height: 1.35;
-      white-space: normal;
       pointer-events: none;
-      opacity: 0;
-      transition: opacity 0.12s ease;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
     }
-    .tip:hover::after, .tip:focus-visible::after { opacity: 1; }
-    th .tip { border-bottom-color: currentColor; font-weight: 600; }
-    th .tip::after { left: auto; right: 0; }
-    .slider-row .tip {
-      font-family: var(--mono);
-      font-size: 0.82rem;
-      border-bottom-style: dashed;
-    }
-    .slider-row .tip::after {
-      left: calc(100% + 10px);
-      bottom: 50%;
-      transform: translateY(50%);
-      top: auto;
-      z-index: 30;
-    }
+    #float-tip[hidden] { display: none !important; }
     .stats {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -269,6 +255,7 @@ HTML = r"""<!DOCTYPE html>
       Scoring is linear in the match statistics. Categories not exposed as sliders are folded into each player's base score, so totals match Fantrax exactly when every slider sits at its original value.
     </div>
   </div>
+  <div id="float-tip" role="tooltip" hidden></div>
 
   <script>
     const DATA = __DATA__;
@@ -425,12 +412,80 @@ HTML = r"""<!DOCTYPE html>
 
     function tip(label, hint) {
       if (!hint) return esc(label);
-      return `<span class="tip" tabindex="0" data-tip="${escAttr(hint)}">${esc(label)}</span>`;
+      return `<span class="tip" tabindex="0" title="${escAttr(hint)}" data-tip="${escAttr(hint)}">${esc(label)}</span>`;
     }
 
     function thTip(label, hint, num) {
       return `<th class="${num ? "num" : ""}">${tip(label, hint)}</th>`;
     }
+
+    const floatTip = document.getElementById("float-tip");
+    let floatTipTarget = null;
+
+    function showFloatTip(el) {
+      const text = el.getAttribute("data-tip");
+      if (!text) return hideFloatTip();
+      floatTipTarget = el;
+      floatTip.textContent = text;
+      floatTip.hidden = false;
+      const margin = 8;
+      const anchor = el.getBoundingClientRect();
+      floatTip.style.left = "0px";
+      floatTip.style.top = "0px";
+      const box = floatTip.getBoundingClientRect();
+      let left = anchor.right + margin;
+      let top = anchor.top + (anchor.height - box.height) / 2;
+      if (left + box.width > window.innerWidth - margin) {
+        left = anchor.left - margin - box.width;
+      }
+      if (top + box.height > window.innerHeight - margin) {
+        top = window.innerHeight - margin - box.height;
+      }
+      if (top < margin) top = margin;
+      floatTip.style.left = `${Math.max(margin, left)}px`;
+      floatTip.style.top = `${top}px`;
+    }
+
+    function hideFloatTip() {
+      floatTipTarget = null;
+      floatTip.hidden = true;
+    }
+
+    document.addEventListener(
+      "pointerover",
+      (e) => {
+        const el = e.target.closest("[data-tip]");
+        if (el) showFloatTip(el);
+      },
+      true,
+    );
+
+    document.addEventListener(
+      "pointerout",
+      (e) => {
+        const el = e.target.closest("[data-tip]");
+        if (!el) return;
+        const next = e.relatedTarget;
+        if (next && el.contains(next)) return;
+        hideFloatTip();
+      },
+      true,
+    );
+
+    document.addEventListener("focusin", (e) => {
+      const el = e.target.closest("[data-tip]");
+      if (el) showFloatTip(el);
+    });
+
+    document.addEventListener("focusout", (e) => {
+      const el = e.target.closest("[data-tip]");
+      if (el && floatTipTarget === el) hideFloatTip();
+    });
+
+    window.addEventListener("scroll", hideFloatTip, true);
+    window.addEventListener("resize", () => {
+      if (floatTipTarget) showFloatTip(floatTipTarget);
+    });
 
     function render() {
       const weights = scaleWeights(multipliers);
