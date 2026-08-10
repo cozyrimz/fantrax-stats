@@ -11,7 +11,6 @@ enter into league settings.
 from __future__ import annotations
 
 import argparse
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -96,10 +95,24 @@ def main() -> None:
             run_step(title, command, root)
 
     latest = seasons[-1]
-    primary = args.proposals_dir / "recommended.json"
-    shutil.copy2(args.proposals_dir / ("recommended-%s.json" % latest), primary)
-    print("\n=== Primary recommendation ===")
-    print("Copied %s -> %s" % (latest, primary.name))
+    run_step(
+        "Solving the recommendation (all seasons)",
+        [
+            "tune.py",
+            "--base",
+            "proposals/base-trim.json",
+            "--name",
+            "recommended",
+            "--out",
+            str(args.proposals_dir / "recommended.json"),
+            "--data-dir",
+            str(args.output_dir),
+        ],
+        root,
+    )
+    print("\n=== Recommendations ===")
+    print("Pooled (all seasons): recommended.json")
+    print("Latest season only: recommended-%s.json" % latest)
 
     run_step(
         "Generating the scoring lab canvas",

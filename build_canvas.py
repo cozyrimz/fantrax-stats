@@ -38,6 +38,17 @@ MAX_LEVERS = 20
 # replacement level and waiver depth stay meaningful inside the canvas.
 KEEP_PER_POSITION = 110
 
+# Presets kept on disk for per-season reports but hidden from the scoring lab UI.
+PRESET_EXCLUDE = frozenset({"identity", "recommended-2023-24", "recommended-2024-25"})
+
+# Button order in the preset row; anything else sorts alphabetically after these.
+PRESET_ORDER = ["recommended", "recommended-2025-26", "flatten", "lift-scarcity"]
+
+PRESET_TIP_PREFIX = {
+    "recommended": "Balances the top-fifty positional mix using all three seasons (2023-24, 2024-25, 2025-26). ",
+    "recommended-2025-26": "Balances the top-fifty positional mix using 2025-26 only. ",
+}
+
 
 def choose_levers(
     working: pd.DataFrame,
@@ -210,6 +221,8 @@ const POSITION_NAMES: Record<string, string> = {
 };
 
 const PRESETS: Record<string, Record<string, Record<string, number>>> = __PRESETS__;
+const PRESET_TIPS: Record<string, string> = __PRESET_TIPS__;
+const PRESET_ORDER: string[] = __PRESET_ORDER__;
 
 function scaleWeights(
   multipliers: Record<string, Record<string, number>>,
@@ -465,12 +478,18 @@ export default function ScoringLab() {
         <Text size="small" tone="secondary">
           Presets
         </Text>
-        <Pill onClick={() => applyPreset("current")} active={Object.keys(multipliers).length === 0}>
+        <Pill
+          onClick={() => applyPreset("current")}
+          active={Object.keys(multipliers).length === 0}
+          title={PRESET_TIPS.current}
+        >
           Current scoring
         </Pill>
-        {Object.keys(PRESETS).map((name) => (
+        {PRESET_ORDER.map((name) => (
           <span key={name}>
-            <Pill onClick={() => applyPreset(name)}>{name}</Pill>
+            <Pill onClick={() => applyPreset(name)} title={PRESET_TIPS[name]}>
+              {name}
+            </Pill>
           </span>
         ))}
         <Spacer />
@@ -682,15 +701,24 @@ export default function ScoringLab() {
 
 def collect_presets(
     output_dir: Path, payload: Dict, presets_dir: Path
-) -> tuple[Dict[str, Dict[str, Dict[str, float]]], List[str]]:
+) -> tuple[
+    Dict[str, Dict[str, Dict[str, float]]],
+    Dict[str, str],
+    List[str],
+    List[str],
+]:
     """Turn proposal files into slider multiplier presets the UI can apply."""
     current = diagnose.load_weights(output_dir)
     lever_categories = {lever["c"] for lever in payload["levers"]}
     presets: Dict[str, Dict[str, Dict[str, float]]] = {}
+    tips: Dict[str, str] = {
+        "current": "League weights as entered in Fantrax today.",
+    }
     skipped: List[str] = []
     for path in sorted(presets_dir.glob("*.json")):
         proposal = json.loads(path.read_text(encoding="utf-8"))
-        if proposal.get("name") in {"identity"}:
+        name = proposal.get("name", path.stem)
+        if name in PRESET_EXCLUDE:
             continue
         proposed, _ = simulate.apply_proposal(current, proposal)
         table: Dict[str, Dict[str, float]] = {}
@@ -704,25 +732,38 @@ def collect_presets(
                     covered = False
                     continue
                 table.setdefault(position, {})[category] = round(value / base, 4)
-        name = proposal.get("name", path.stem)
         if table and covered:
             presets[name] = table
+            description = proposal.get("description", "")
+            prefix = PRESET_TIP_PREFIX.get(name, "")
+            if prefix or description:
+                tips[name] = prefix + description
         elif table:
             skipped.append(name)
-    return presets, skipped
+    order = [name for name in PRESET_ORDER if name in presets]
+    order.extend(sorted(name for name in presets if name not in order))
+    return presets, tips, order, skipped
 
 
 def resolve_required_levers(output_dir: Path, presets_dir: Path) -> List[str]:
+    """Categories both recommended presets may change, so each is fully adjustable."""
+    paths: List[Path] = []
     headline = presets_dir / "recommended.json"
-    if not headline.exists():
-        seasons = validate.seasons_available(output_dir)
-        if seasons:
-            season_rec = presets_dir / ("recommended-%s.json" % seasons[-1])
-            if season_rec.exists():
-                headline = season_rec
-    if not headline.exists():
+    if headline.exists():
+        paths.append(headline)
+    seasons = validate.seasons_available(output_dir)
+    if seasons:
+        latest = presets_dir / ("recommended-%s.json" % seasons[-1])
+        if latest.exists() and latest not in paths:
+            paths.append(latest)
+    if not paths:
         return []
-    return categories_used_by(json.loads(headline.read_text(encoding="utf-8")))
+    used: List[str] = []
+    for path in paths:
+        for category in categories_used_by(json.loads(path.read_text(encoding="utf-8"))):
+            if category not in used:
+                used.append(category)
+    return used
 
 
 def main() -> None:
@@ -742,10 +783,14 @@ def main() -> None:
     if args.max_players:
         payload["players"] = payload["players"][: args.max_players]
 
-    presets, skipped = collect_presets(args.output_dir, payload, args.presets)
+    presets, preset_tips, preset_order, skipped = collect_presets(
+        args.output_dir, payload, args.presets
+    )
 
     source = TEMPLATE.replace("__DATA__", json.dumps(payload, separators=(",", ":")))
     source = source.replace("__PRESETS__", json.dumps(presets, indent=2))
+    source = source.replace("__PRESET_TIPS__", json.dumps(preset_tips, indent=2))
+    source = source.replace("__PRESET_ORDER__", json.dumps(preset_order))
 
     CANVAS_DIR.mkdir(parents=True, exist_ok=True)
     target = CANVAS_DIR / args.name

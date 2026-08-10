@@ -123,6 +123,7 @@ HTML = r"""<!DOCTYPE html>
     }
     .pill.active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
     .pill:hover { border-color: var(--accent); }
+    .pill .tip { border-bottom: none; cursor: inherit; }
     .btn {
       border: 1px solid var(--border);
       background: var(--surface);
@@ -260,6 +261,8 @@ HTML = r"""<!DOCTYPE html>
   <script>
     const DATA = __DATA__;
     const PRESETS = __PRESETS__;
+    const PRESET_TIPS = __PRESET_TIPS__;
+    const PRESET_ORDER = __PRESET_ORDER__;
     const POSITIONS = ["D", "M", "F", "G"];
     const POS_NAMES = { D: "Defenders", M: "Midfielders", F: "Forwards", G: "Keepers" };
     const POS_COLORS = { D: "#1f77b4", M: "#2ca02c", F: "#d62728", G: "#9467bd" };
@@ -669,8 +672,10 @@ HTML = r"""<!DOCTYPE html>
       render();
     }
 
-    document.getElementById("preset-buttons").innerHTML = Object.keys(PRESETS).map(name =>
-      `<button class="pill" data-preset="${esc(name)}">${esc(name)}</button>`
+    document.querySelector('[data-preset="current"]').innerHTML =
+      tip("Current scoring", PRESET_TIPS.current || "");
+    document.getElementById("preset-buttons").innerHTML = PRESET_ORDER.map(name =>
+      `<button class="pill" data-preset="${esc(name)}">${tip(name, PRESET_TIPS[name] || "")}</button>`
     ).join("");
 
     document.addEventListener("click", e => {
@@ -715,10 +720,14 @@ def main() -> None:
 
     required = resolve_required_levers(args.output_dir, args.presets)
     payload = build_payload(args.output_dir, required)
-    presets, skipped = collect_presets(args.output_dir, payload, args.presets)
+    presets, preset_tips, preset_order, skipped = collect_presets(
+        args.output_dir, payload, args.presets
+    )
 
     html = HTML.replace("__DATA__", json.dumps(payload, separators=(",", ":")))
     html = html.replace("__PRESETS__", json.dumps(presets, separators=(",", ":")))
+    html = html.replace("__PRESET_TIPS__", json.dumps(preset_tips, separators=(",", ":")))
+    html = html.replace("__PRESET_ORDER__", json.dumps(preset_order))
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(html, encoding="utf-8")
