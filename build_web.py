@@ -14,6 +14,90 @@ from pathlib import Path
 from build_canvas import build_payload, collect_presets, resolve_required_levers
 
 DOCS_DIR = Path(__file__).parent / "docs"
+REPO_URL = "https://github.com/cozyrimz/fantrax-stats"
+
+
+def methodology_html(seasons: list[str], player_count: int) -> str:
+    """Expandable reference for how the recommended presets were derived."""
+    season_list = ", ".join(seasons) if seasons else "available seasons"
+    latest = seasons[-1] if seasons else "the latest season"
+    return f"""
+    <details id="methodology" class="methodology section">
+      <summary>How the recommended weights were chosen</summary>
+      <div class="method-body">
+        <p>
+          The <strong>recommended</strong> and <strong>recommended-{latest}</strong> presets are not
+          hand-tuned guesses. They come from replaying proposed weight changes over
+          {player_count:,} player-seasons of real Fantrax per-game logs ({season_list}), then
+          checking whether the resulting league looks fairer on measurable grounds.
+        </p>
+
+        <h3>What we were fixing</h3>
+        <p>
+          The current scoring pays heavily for categories that track minutes more than skill:
+          ball recoveries, duels won, accurate passes, long balls, and (for defenders) clearances
+          and aerials. Together those categories are roughly half of all outfield points, barely
+          separate elite players from replacements, and correlate almost perfectly with games played.
+          That pushes holding midfielders and accumulating centre backs up the rankings and makes
+          the top fifty defender-heavy compared with how many of each position your lineup actually
+          starts.
+        </p>
+
+        <h3>Step 1 — Trim volume, lift skill</h3>
+        <p>
+          First we cut the high-volume, low-variance categories and raise categories that require
+          something rarer: tackles won and interceptions for ball-winners; key passes, crosses,
+          corners forced, and dribbles for creators and attackers. That changes <em>which</em>
+          players within a position are valuable without yet fixing how many of each position reach
+          the top of the league.
+        </p>
+
+        <h3>Step 2 — Rebalance positions</h3>
+        <p>
+          Those trims hit defenders and holding midfielders hardest, so we solve one multiplier per
+          position so the player at each position's marginal starter rank is worth roughly the same.
+          Marginal rank comes from your roster rules: one keeper, three to five defenders, three to
+          five midfielders, one to three forwards across twelve teams. Scaling a whole position cannot
+          reorder players inside it, so this step only fixes <em>how many</em> of each position land
+          in the elite tier, not the style mix within a position (that is step 1).
+        </p>
+
+        <h3>Step 3 — Round for Fantrax entry</h3>
+        <p>
+          The solver's output is concentrated into about thirty category changes instead of retyping
+          every weight a position scores. Weights are rounded to numbers you can enter in league
+          settings, then re-checked against the full match data so the rounded set still behaves like
+          the solved one.
+        </p>
+
+        <h3>Two recommended presets</h3>
+        <ul>
+          <li><strong>recommended</strong> — steps 1–3 run on all three seasons pooled, so the
+            positional mix target reflects how the league behaved across {season_list}.</li>
+          <li><strong>recommended-{latest}</strong> — same process on {latest} only, if you prefer
+            weights tuned to the most recent player pool and scoring environment.</li>
+        </ul>
+
+        <h3>What we checked</h3>
+        <p>
+          Each proposal is scored on value inequality (Gini over replacement level), positional mix
+          of the top fifty versus starting slots, waiver depth (players within 80% of a median
+          starter), and weekly leaderboard churn. The volume trims improve variety and weekly
+          movement; positional scalars bring D/M/F/G counts in the top fifty closer to lineup
+          demand. Season-long top-heaviness barely moves — that trade-off is structural to linear
+          scoring with a minutes floor.
+        </p>
+
+        <p class="method-foot">
+          Full pipeline, scripts, and per-season written reports:
+          <a href="{REPO_URL}">{REPO_URL}</a>
+          (see <code>run_all.py</code>, <code>tune.py</code>, and <code>output/seasons/&lt;season&gt;/report.md</code>).
+          You can load either preset above and adjust any slider to see the effect before changing
+          league settings.
+        </p>
+      </div>
+    </details>"""
+
 
 HTML = r"""<!DOCTYPE html>
 <html lang="en">
@@ -179,6 +263,59 @@ HTML = r"""<!DOCTYPE html>
     .callout strong { display: block; margin-bottom: 4px; }
     .section { margin-bottom: 24px; }
     .spacer { flex: 1; }
+    .methodology {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0;
+    }
+    .methodology summary {
+      padding: 12px 16px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      list-style: none;
+    }
+    .methodology summary::-webkit-details-marker { display: none; }
+    .methodology summary::before {
+      content: "▸ ";
+      color: var(--muted);
+      font-size: 0.85em;
+    }
+    .methodology[open] summary::before { content: "▾ "; }
+    .methodology[open] summary { border-bottom: 1px solid var(--border); }
+    .method-body {
+      padding: 14px 16px 16px;
+      font-size: 0.88rem;
+      color: var(--text);
+      max-width: 52rem;
+    }
+    .method-body h3 {
+      font-size: 0.92rem;
+      font-weight: 600;
+      margin: 18px 0 6px;
+    }
+    .method-body h3:first-of-type { margin-top: 0; }
+    .method-body p { margin: 0 0 10px; color: var(--muted); }
+    .method-body ul { margin: 0 0 10px; padding-left: 1.2rem; color: var(--muted); }
+    .method-body li { margin-bottom: 6px; }
+    .method-body strong { color: var(--text); font-weight: 600; }
+    .method-body code {
+      font-family: var(--mono);
+      font-size: 0.82em;
+      background: var(--bg);
+      padding: 1px 4px;
+      border-radius: 3px;
+    }
+    .method-foot { margin-top: 14px !important; font-size: 0.82rem; }
+    .method-foot a { color: var(--accent); }
+    .method-link {
+      font-size: 0.82rem;
+      color: var(--accent);
+      text-decoration: none;
+      white-space: nowrap;
+    }
+    .method-link:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
@@ -200,8 +337,11 @@ HTML = r"""<!DOCTYPE html>
       <button class="pill active" data-preset="current">Current scoring</button>
       <span id="preset-buttons"></span>
       <span class="spacer"></span>
+      <a class="method-link" href="#methodology">How we chose these</a>
       <button class="btn" id="reset-all">Reset all</button>
     </div>
+
+    __METHODOLOGY__
 
     <div class="card section">
       <div class="card-hd">Category weights <span style="float:right;font-weight:400;color:var(--muted)">current → proposed</span></div>
@@ -688,6 +828,15 @@ HTML = r"""<!DOCTYPE html>
 
     document.getElementById("reset-all").addEventListener("click", () => applyPreset("current"));
 
+    document.querySelector(".method-link")?.addEventListener("click", (e) => {
+      e.preventDefault();
+      const block = document.getElementById("methodology");
+      if (block) {
+        block.open = true;
+        block.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    });
+
     document.getElementById("sliders").addEventListener("input", e => {
       const t = e.target;
       if (t.matches("input[type=range]")) {
@@ -727,6 +876,10 @@ def main() -> None:
     html = html.replace("__PRESETS__", json.dumps(presets, separators=(",", ":")))
     html = html.replace("__PRESET_TIPS__", json.dumps(preset_tips, separators=(",", ":")))
     html = html.replace("__PRESET_ORDER__", json.dumps(preset_order))
+    html = html.replace(
+        "__METHODOLOGY__",
+        methodology_html(payload.get("seasons", []), payload.get("playerCount", 0)),
+    )
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(html, encoding="utf-8")
