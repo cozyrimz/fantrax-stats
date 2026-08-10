@@ -208,13 +208,6 @@
     }
     .method-foot { margin-top: 14px !important; font-size: 0.82rem; }
     .method-foot a { color: var(--accent); }
-    .method-link {
-      font-size: 0.82rem;
-      color: var(--accent);
-      text-decoration: none;
-      white-space: nowrap;
-    }
-    .method-link:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
@@ -236,13 +229,12 @@
       <button class="pill active" data-preset="current">Current scoring</button>
       <span id="preset-buttons"></span>
       <span class="spacer"></span>
-      <a class="method-link" href="#methodology">How we chose these</a>
       <button class="btn" id="reset-all">Reset all</button>
     </div>
 
     
     <details id="methodology" class="methodology section">
-      <summary>How the recommended weights were chosen</summary>
+      <summary>See the strategy behind calculating the recommended preset</summary>
       <div class="method-body">
         <p>
           The <strong>recommended</strong> and <strong>recommended-2025-26</strong> presets are not
@@ -801,15 +793,6 @@
     });
 
     document.getElementById("reset-all").addEventListener("click", () => applyPreset("current"));
-
-    document.querySelector(".method-link")?.addEventListener("click", (e) => {
-      e.preventDefault();
-      const block = document.getElementById("methodology");
-      if (block) {
-        block.open = true;
-        block.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
-    });
 
     document.getElementById("sliders").addEventListener("input", e => {
       const t = e.target;
