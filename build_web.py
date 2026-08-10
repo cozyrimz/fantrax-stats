@@ -415,7 +415,7 @@ HTML = r"""<!DOCTYPE html>
 
     function tip(label, hint) {
       if (!hint) return esc(label);
-      return `<span class="tip" tabindex="0" title="${escAttr(hint)}" data-tip="${escAttr(hint)}">${esc(label)}</span>`;
+      return `<span class="tip" tabindex="0" data-tip="${escAttr(hint)}">${esc(label)}</span>`;
     }
 
     function thTip(label, hint, num) {
@@ -533,7 +533,6 @@ HTML = r"""<!DOCTYPE html>
         return `<div class="slider-row ${changed ? "changed" : ""}">
           ${tip(lever.c, lever.name)}
           <input type="range" min="0.1" max="3" step="0.05" value="${factor}"
-            title="${escAttr(lever.name)}"
             data-pos="${position}" data-cat="${lever.c}" />
           <span class="wt">${base} → ${cur}</span>
         </div>`;

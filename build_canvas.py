@@ -44,9 +44,12 @@ PRESET_EXCLUDE = frozenset({"identity", "recommended-2023-24", "recommended-2024
 # Button order in the preset row; anything else sorts alphabetically after these.
 PRESET_ORDER = ["recommended", "recommended-2025-26", "flatten", "lift-scarcity"]
 
-PRESET_TIP_PREFIX = {
-    "recommended": "Balances the top-fifty positional mix using all three seasons (2023-24, 2024-25, 2025-26). ",
-    "recommended-2025-26": "Balances the top-fifty positional mix using 2025-26 only. ",
+PRESET_TIPS = {
+    "recommended": "Trim volume stats and rebalance the top-fifty mix across all three seasons.",
+    "recommended-2025-26": "Same trims and rebalance, tuned on 2025-26 only.",
+    "flatten": "Doubles volume categories as a control — the opposite of the recommendation.",
+    "lift-scarcity": "Raises goals, assists, big chances, and shots on target only.",
+    "trim-volume": "Cuts recoveries, duels, passes, and clearances without rebalancing positions.",
 }
 
 
@@ -734,10 +737,10 @@ def collect_presets(
                 table.setdefault(position, {})[category] = round(value / base, 4)
         if table and covered:
             presets[name] = table
-            description = proposal.get("description", "")
-            prefix = PRESET_TIP_PREFIX.get(name, "")
-            if prefix or description:
-                tips[name] = prefix + description
+            if name in PRESET_TIPS:
+                tips[name] = PRESET_TIPS[name]
+            elif proposal.get("description"):
+                tips[name] = proposal["description"]
         elif table:
             skipped.append(name)
     order = [name for name in PRESET_ORDER if name in presets]
