@@ -1,0 +1,10 @@
+cookies.json
+cookies.txt
+cache/
+output/
+*.csv
+*.parquet
+*.log
+__pycache__/
+.venv/
+.DS_Store

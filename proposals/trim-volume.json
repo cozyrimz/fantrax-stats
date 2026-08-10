@@ -1,0 +1,9 @@
+{
+  "name": "trim-volume",
+  "description": "Cut the categories that pay for time on the pitch rather than skill. Ball recoveries and duels won are the purest examples: they are worth a tenth of all points, barely vary between players, and track games played almost perfectly. Accurate passes and defender clearances are the next largest, and together they are why centre backs and holding midfielders accumulate.",
+  "multiply": {
+    "all": { "BR": 0.4, "DW": 0.4, "AP": 0.5, "LBA": 0.6 },
+    "D": { "CLR": 0.5, "AER": 0.6 }
+  },
+  "set": {}
+}

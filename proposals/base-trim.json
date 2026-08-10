@@ -1,0 +1,48 @@
+{
+  "name": "volume trims only",
+  "description": "Separate volume accumulation from genuine skill, then put each position back on an equal footing. Ball recoveries, duels won, accurate passes, long balls, and defender clearances and aerials are cut, because together they are worth roughly half of all outfield points, barely vary between players and track games played almost perfectly, so they pay for being on the pitch rather than for anything a manager can draft. Tackles won and interceptions are raised instead, which keeps ball-winning defenders and holding midfielders fully viable but requires them to actually win the ball rather than merely be present for ninety minutes. Crosses, corners forced, key passes and dribbles are raised so attacking full-backs and creative midfielders gain what accumulating centre backs lose. Those trims fall hardest on defenders and holding midfielders, so a single factor per position is then solved to restore each position to the share of the elite tier its lineup slots deserve: defenders are lifted back up, forwards lifted slightly, and goalkeepers cut, since keeper scoring is untouched by the volume trims and would otherwise dominate a league that starts only one of them. The position factors are delivered through a handful of that position's steadiest categories rather than every category it scores, which keeps the change to about thirty weights instead of a hundred and thirty while leaving the order of players within each position essentially untouched.",
+  "scale": {},
+  "multiply": {
+    "D": {
+      "BR": 0.6,
+      "DW": 0.6,
+      "AP": 0.6,
+      "LBA": 0.8,
+      "CLR": 0.6,
+      "AER": 0.8,
+      "TkW": 1.3,
+      "Int": 1.3,
+      "AC": 1.6,
+      "CF": 1.2,
+      "KP": 1.25,
+      "CoS": 1.25
+    },
+    "M": {
+      "BR": 0.6,
+      "DW": 0.6,
+      "AP": 0.6,
+      "LBA": 0.8,
+      "CLR": 0.8,
+      "AER": 0.8,
+      "TkW": 1.3,
+      "Int": 1.3,
+      "AC": 1.3,
+      "CF": 1.2,
+      "KP": 1.2,
+      "CoS": 1.2
+    },
+    "F": {
+      "BR": 0.6,
+      "DW": 0.6,
+      "AP": 0.6,
+      "LBA": 0.8,
+      "TkW": 1.3,
+      "Int": 1.3,
+      "AC": 1.3,
+      "CF": 1.2,
+      "KP": 1.2,
+      "CoS": 1.2
+    }
+  },
+  "set": {}
+}

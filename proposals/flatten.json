@@ -1,0 +1,32 @@
+{
+  "name": "flatten",
+  "description": "The opposite of the recommendation, kept as a control. Where the recommendation cuts the categories that pay for being on the pitch, this doubles them. Those categories are the only ones whose output barely separates an elite player from a replacement player, so loading weight onto them is the only way a linear scoring system can narrow the gap between the top of the league and the waiver wire. The point of running it is to measure what that costs: it decides value by clearances, aerials, recoveries and passes, which is what currently makes holding midfielders and accumulating centre backs so strong.",
+  "scale": {},
+  "multiply": {
+    "D": {
+      "BR": 2.0,
+      "DW": 2.0,
+      "AP": 2.0,
+      "LBA": 2.0,
+      "CLR": 2.0,
+      "AER": 2.0
+    },
+    "M": {
+      "BR": 2.0,
+      "DW": 2.0,
+      "AP": 2.0,
+      "LBA": 2.0,
+      "CLR": 2.0,
+      "AER": 2.0
+    },
+    "F": {
+      "BR": 2.0,
+      "DW": 2.0,
+      "AP": 2.0,
+      "LBA": 2.0,
+      "CLR": 2.0,
+      "AER": 2.0
+    }
+  },
+  "set": {}
+}

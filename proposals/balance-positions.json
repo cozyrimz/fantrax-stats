@@ -1,0 +1,7 @@
+{
+  "name": "balance-positions",
+  "description": "Move whole positions against each other without touching the order of players inside any position. Forwards are the scarcest roster slot yet the least represented among top scorers, so their scoring is scaled up and defenders' scaled slightly down.",
+  "scale": { "F": 1.2, "D": 0.92 },
+  "multiply": {},
+  "set": {}
+}
