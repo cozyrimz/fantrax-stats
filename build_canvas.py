@@ -480,7 +480,7 @@ export default function ScoringLab() {
       </Row>
 
       <Card>
-        <CardHeader trailing={<Text size="small" tone="tertiary">weight then adjusted weight</Text>}>
+        <CardHeader trailing={<Text size="small" tone="tertiary">current → proposed</Text>}>
           Category weights
         </CardHeader>
         <CardBody>

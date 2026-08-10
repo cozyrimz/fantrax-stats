@@ -203,7 +203,7 @@ HTML = r"""<!DOCTYPE html>
     </div>
 
     <div class="card section">
-      <div class="card-hd">Category weights <span style="float:right;font-weight:400;color:var(--muted)">weight → adjusted</span></div>
+      <div class="card-hd">Category weights <span style="float:right;font-weight:400;color:var(--muted)">current → proposed</span></div>
       <div class="card-bd">
         <div class="row" style="margin-bottom:12px" id="pos-tabs"></div>
         <div id="sliders"></div>
