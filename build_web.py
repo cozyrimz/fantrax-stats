@@ -43,13 +43,15 @@ def methodology_html(seasons: list[str], player_count: int) -> str:
           starts.
         </p>
 
-        <h3>Step 1 — Trim volume, lift skill</h3>
+        <h3>Step 1 — Trim volume, trim team results, lift skill</h3>
         <p>
-          First we cut the high-volume, low-variance categories and raise categories that require
-          something rarer: tackles won and interceptions for ball-winners; key passes, crosses,
-          corners forced, and dribbles for creators and attackers. That changes <em>which</em>
-          players within a position are valuable without yet fixing how many of each position reach
-          the top of the league.
+          First we cut categories that pay for minutes or for playing on a strong team:
+          recoveries, duels, passes, and clearances on one hand; clean sheets, corners
+          conceded and high claims on the other. A defender at Manchester City collects
+          clean sheets because of the system, not because he individually outplayed a
+          counterpart at a mid-table club. Then we raise categories that require a
+          discrete action: tackles won, interceptions, blocks, saves, key passes, goals
+          and shots on target.
         </p>
 
         <h3>Step 2 — Rebalance positions</h3>

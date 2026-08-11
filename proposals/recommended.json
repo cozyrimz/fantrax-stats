@@ -1,21 +1,18 @@
 {
   "name": "recommended",
-  "description": "Separate volume accumulation from genuine skill, then put each position back on an equal footing. Ball recoveries, duels won, accurate passes, long balls, and defender clearances and aerials are cut, because together they are worth roughly half of all outfield points, barely vary between players and track games played almost perfectly, so they pay for being on the pitch rather than for anything a manager can draft. Tackles won and interceptions are raised instead, which keeps ball-winning defenders and holding midfielders fully viable but requires them to actually win the ball rather than merely be present for ninety minutes. Crosses, corners forced, key passes and dribbles are raised so attacking full-backs and creative midfielders gain what accumulating centre backs lose. Those trims fall hardest on defenders and holding midfielders, so a single factor per position is then solved to restore each position to the share of the elite tier its lineup slots deserve: defenders are lifted back up, forwards lifted slightly, and goalkeepers cut, since keeper scoring is untouched by the volume trims and would otherwise dominate a league that starts only one of them. The position factors are delivered through a handful of that position's steadiest categories rather than every category it scores, which keeps the change to about thirty weights instead of a hundred and thirty while leaving the order of players within each position essentially untouched.",
+  "description": "Separate volume accumulation and team-success bonuses from genuine individual actions, then put each position back on an equal footing. Ball recoveries, duels won, accurate passes, long balls, and defender clearances and aerials are cut because they pay for minutes more than skill. Clean sheets, corners conceded and high claims are cut because they track how good the player's team is \u2014 a centre back at a top side racks them up without doing more than one at a relegation candidate. Tackles won, interceptions, blocks, clearances off the line, saves and key passes are raised instead so value follows what a manager can actually scout. Crosses, corners forced and dribbles are raised for creators. Forward goals, shots and assists are lifted so strikers outside the top clubs stay viable. Position scalars then restore each position's share of the elite tier without using team-result categories as the lever.",
   "scale": {},
   "multiply": {},
   "set": {
     "D": {
-      "CLR": 1.1,
+      "CLR": 1.15,
       "AP": 0.08,
       "DW": 0.3,
       "BR": 0.4,
+      "CS": 3.0,
       "AER": 0.8,
-      "TkW": 1.3,
-      "Int": 1.3,
-      "BCC": 2.5,
-      "CS": 8.0,
-      "IntB": 0.4,
-      "LBA": 0.55
+      "TkW": 1.35,
+      "Int": 1.35
     },
     "M": {
       "AP": 0.06,
@@ -23,26 +20,32 @@
       "BR": 0.3,
       "KP": 2.5,
       "TkW": 1.3,
-      "CoS": 1.8,
-      "Int": 1.3
+      "SOT": 3.5,
+      "Int": 1.3,
+      "CLR": 0.8,
+      "CS": 0.75,
+      "CoS": 1.7
     },
     "F": {
       "AP": 0.16,
       "SOT": 5.5,
       "DW": 0.4,
-      "G": 14.0,
-      "BR": 0.3,
+      "G": 12.0,
+      "BR": 0.35,
       "KP": 2.5,
-      "CoS": 1.75
+      "CoS": 1.7
     },
     "G": {
+      "Sv": 1.9,
+      "CS": 6.5,
+      "AER": 0.75,
       "AP": 0.08,
       "CLR": 1.15,
-      "CS": 7.0,
-      "HCS": 1.3,
+      "DW": 0.4,
+      "FS": 0.4,
+      "KP": 4.5,
       "LBA": 0.75,
       "Pu": 0.4,
-      "Sv": 1.5,
       "SvIB": 0.4
     }
   }

@@ -26,6 +26,12 @@ import simulate
 
 POSITION_ORDER = ["D", "M", "F", "G"]
 
+# Team-result stats (clean sheets, goals against, etc.) track how good the club is
+# more than what the individual did. They are trimmed in the base proposal and
+# must not carry a position scalar, or the tuner would raise clean sheets again
+# when lifting defenders.
+TEAM_DEPENDENT = frozenset({"CS", "CC", "GAO", "GA", "HCS", "Sm"})
+
 
 def marginal_ranks(top_n: int = 50) -> Dict[str, int]:
     """The rank in each position that a balanced top `top_n` would reach."""
@@ -116,7 +122,7 @@ def concentrate_scale(
         spread = share.std() / share.mean().replace(0, np.nan)
         volume = contribution[categories].sum()
         ranked = sorted(
-            (c for c in categories if volume[c] > 0),
+            (c for c in categories if volume[c] > 0 and c not in TEAM_DEPENDENT),
             key=lambda c: (spread.get(c, np.inf), -volume[c]),
         )
 
