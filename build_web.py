@@ -234,7 +234,7 @@ HTML = r"""<!DOCTYPE html>
     .card-bd { padding: 16px; }
     .slider-row {
       display: grid;
-      grid-template-columns: 52px 1fr 96px;
+      grid-template-columns: 52px 1fr minmax(128px, auto);
       gap: 10px;
       align-items: center;
       margin-bottom: 8px;
@@ -242,8 +242,30 @@ HTML = r"""<!DOCTYPE html>
     }
     .slider-row code { font-family: var(--mono); }
     .slider-row input[type=range] { width: 100%; accent-color: var(--accent); }
-    .slider-row .wt { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
-    .slider-row.changed .wt { color: var(--text); }
+    .wt-editor {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      justify-content: flex-end;
+      font-variant-numeric: tabular-nums;
+    }
+    .wt-base { color: var(--muted); min-width: 2.5rem; text-align: right; }
+    .wt-arrow { color: var(--muted); }
+    .wt-input {
+      width: 4.25rem;
+      font-family: var(--mono);
+      font-size: 0.82rem;
+      padding: 4px 6px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: var(--surface);
+      color: var(--text);
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    .wt-input:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+    .slider-row.changed .wt-input { border-color: var(--accent); color: var(--text); }
+    .slider-row.changed .wt-base { color: var(--muted); }
     .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
     @media (max-width: 800px) { .grid2 { grid-template-columns: 1fr; } }
     .chart-box { height: 280px; position: relative; margin-bottom: 6px; }
@@ -540,6 +562,53 @@ HTML = r"""<!DOCTYPE html>
       return `${change > 0 ? "+" : ""}${change.toFixed(3)} ${better ? "better" : "worse"}`;
     }
 
+    function weightStep(value) {
+      const m = Math.abs(value);
+      if (m < 0.2) return 0.01;
+      if (m < 2) return 0.05;
+      if (m < 10) return 0.5;
+      return 1;
+    }
+
+    function snapWeight(value) {
+      const step = weightStep(value);
+      return Math.round(Math.round(value / step) * step * 100) / 100;
+    }
+
+    function proposedWeight(base, factor) {
+      return snapWeight(base * factor);
+    }
+
+    function setLeverWeight(pos, cat, proposed) {
+      const base = DATA.weights[pos]?.[cat];
+      if (base === undefined) return;
+      proposed = snapWeight(proposed);
+      const factor = base ? proposed / base : 1;
+      const next = { ...multipliers };
+      const posTable = { ...(next[pos] || {}) };
+      if (Math.abs(factor - 1) < 0.001) {
+        delete posTable[cat];
+        if (Object.keys(posTable).length) next[pos] = posTable;
+        else delete next[pos];
+      } else {
+        posTable[cat] = Math.round(factor * 1000) / 1000;
+        next[pos] = posTable;
+      }
+      multipliers = next;
+      document.querySelectorAll("[data-preset]").forEach(el => el.classList.remove("active"));
+      render();
+    }
+
+    function applyWeightInput(input) {
+      setLeverWeight(input.dataset.pos, input.dataset.cat, Number(input.value));
+    }
+
+    function setLeverFactor(pos, cat, factor) {
+      const base = DATA.weights[pos]?.[cat];
+      if (base === undefined) return;
+      setLeverWeight(pos, cat, proposedWeight(base, factor));
+    }
+
     function esc(s) {
       return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;");
     }
@@ -667,13 +736,22 @@ HTML = r"""<!DOCTYPE html>
         const base = DATA.weights[position]?.[lever.c];
         if (base === undefined) return "";
         const factor = (multipliers[position] && multipliers[position][lever.c]) || 1;
-        const cur = Math.round(base * factor * 1000) / 1000;
-        const changed = Math.abs(factor - 1) > 0.001;
+        const cur = proposedWeight(base, factor);
+        const changed = Math.abs(cur - snapWeight(base)) > 0.001;
+        const step = weightStep(cur || base);
+        const sliderVal = Math.min(1.75, Math.max(0.25, factor));
         return `<div class="slider-row ${changed ? "changed" : ""}">
           ${tip(lever.c, lever.name)}
-          <input type="range" min="0.1" max="3" step="0.05" value="${factor}"
-            data-pos="${position}" data-cat="${lever.c}" />
-          <span class="wt">${base} → ${cur}</span>
+          <input type="range" class="wt-range" min="0.25" max="1.75" step="0.05" value="${sliderVal}"
+            data-role="range" data-pos="${position}" data-cat="${lever.c}" data-base="${base}"
+            aria-label="${escAttr(lever.name)} multiplier" />
+          <div class="wt-editor">
+            <span class="wt-base">${base}</span>
+            <span class="wt-arrow">→</span>
+            <input type="number" class="wt-input" value="${cur}" step="${step}"
+              data-role="weight" data-pos="${position}" data-cat="${lever.c}" data-base="${base}"
+              aria-label="${escAttr(lever.name)} proposed weight" />
+          </div>
         </div>`;
       }).join("");
 
@@ -828,13 +906,31 @@ HTML = r"""<!DOCTYPE html>
     document.getElementById("reset-all").addEventListener("click", () => applyPreset("current"));
 
     document.getElementById("sliders").addEventListener("input", e => {
-      const t = e.target;
-      if (t.matches("input[type=range]")) {
-        const pos = t.dataset.pos, cat = t.dataset.cat, val = Number(t.value);
-        multipliers = { ...multipliers, [pos]: { ...(multipliers[pos] || {}), [cat]: val } };
-        document.querySelectorAll("[data-preset]").forEach(el => el.classList.remove("active"));
-        render();
+      const range = e.target.closest('input[data-role="range"]');
+      if (range) {
+        setLeverFactor(range.dataset.pos, range.dataset.cat, Number(range.value));
+        return;
       }
+    });
+
+    document.getElementById("sliders").addEventListener("change", e => {
+      const weight = e.target.closest('input[data-role="weight"]');
+      if (weight) applyWeightInput(weight);
+    });
+
+    document.getElementById("sliders").addEventListener("keydown", e => {
+      const weight = e.target.closest('input[data-role="weight"]');
+      if (!weight) return;
+      if (e.key === "Enter") {
+        e.preventDefault();
+        applyWeightInput(weight);
+        return;
+      }
+      if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+      e.preventDefault();
+      const step = weightStep(Number(weight.value) || Number(weight.dataset.base));
+      const delta = e.key === "ArrowUp" ? step : -step;
+      setLeverWeight(weight.dataset.pos, weight.dataset.cat, Number(weight.value) + delta);
     });
 
     if (Object.keys(multipliers).length) {

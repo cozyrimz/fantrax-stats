@@ -356,6 +356,23 @@ function analyse(weights: Record<string, Record<string, number>>, season?: strin
   };
 }
 
+function weightStep(value: number): number {
+  const m = Math.abs(value);
+  if (m < 0.2) return 0.01;
+  if (m < 2) return 0.05;
+  if (m < 10) return 0.5;
+  return 1;
+}
+
+function snapWeight(value: number): number {
+  const step = weightStep(value);
+  return Math.round(Math.round(value / step) * step * 100) / 100;
+}
+
+function proposedWeight(base: number, factor: number): number {
+  return snapWeight(base * factor);
+}
+
 function WeightSlider({
   lever,
   position,
@@ -370,7 +387,15 @@ function WeightSlider({
   const theme = useHostTheme();
   const base = DATA.weights[position]?.[lever.c];
   if (base === undefined) return null;
-  const current = Math.round(base * factor * 1000) / 1000;
+  const current = proposedWeight(base, factor);
+  const changed = Math.abs(current - snapWeight(base)) > 0.001;
+  const step = weightStep(current || base);
+  const sliderVal = Math.min(1.75, Math.max(0.25, factor));
+
+  const applyWeight = (raw: number) => {
+    const proposed = snapWeight(raw);
+    onChange(base ? proposed / base : 1);
+  };
 
   return (
     <Row gap={10} align="center">
@@ -383,20 +408,54 @@ function WeightSlider({
       </Text>
       <input
         type="range"
-        min={0.1}
-        max={3}
+        min={0.25}
+        max={1.75}
         step={0.05}
-        value={factor}
+        value={sliderVal}
         onChange={(event: { target: { value: string } }) => onChange(Number(event.target.value))}
         style={{ flex: 1, minWidth: 0, accentColor: theme.accent.primary }}
+        aria-label={`${lever.name} multiplier`}
       />
-      <Text
-        size="small"
-        tone={Math.abs(factor - 1) < 0.001 ? "tertiary" : "primary"}
-        style={{ width: 96, textAlign: "right", fontVariantNumeric: "tabular-nums" }}
-      >
-        {base} to {current}
-      </Text>
+      <Row gap={6} align="center" style={{ flexShrink: 0 }}>
+        <Text size="small" tone="tertiary" style={{ fontVariantNumeric: "tabular-nums" }}>
+          {base}
+        </Text>
+        <Text size="small" tone="tertiary">
+          →
+        </Text>
+        <input
+          type="number"
+          defaultValue={current}
+          key={`${position}-${lever.c}-${current}`}
+          step={step}
+          onBlur={(event: { currentTarget: { value: string } }) => {
+            applyWeight(Number(event.currentTarget.value));
+          }}
+          onKeyDown={(event: { key: string; preventDefault: () => void; currentTarget: HTMLInputElement }) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              applyWeight(Number(event.currentTarget.value));
+              return;
+            }
+            if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+              event.preventDefault();
+              const delta = event.key === "ArrowUp" ? step : -step;
+              applyWeight(Number(event.currentTarget.value) + delta);
+            }
+          }}
+          style={{
+            width: "4.25rem",
+            fontVariantNumeric: "tabular-nums",
+            textAlign: "right",
+            padding: "4px 6px",
+            borderRadius: 4,
+            border: `1px solid ${changed ? theme.accent.primary : theme.border.primary}`,
+            background: theme.background.secondary,
+            color: theme.text.primary,
+          }}
+          aria-label={`${lever.name} proposed weight`}
+        />
+      </Row>
     </Row>
   );
 }
@@ -420,10 +479,21 @@ export default function ScoringLab() {
   );
 
   const setFactor = (pos: string, cat: string, value: number) => {
-    setMultipliers((prev) => ({
-      ...prev,
-      [pos]: { ...(prev[pos] ?? {}), [cat]: value },
-    }));
+    const base = DATA.weights[pos]?.[cat];
+    if (base !== undefined) {
+      const proposed = snapWeight(base * value);
+      value = base ? proposed / base : 1;
+    }
+    setMultipliers((prev) => {
+      const next = { ...prev, [pos]: { ...(prev[pos] ?? {}) } };
+      if (Math.abs(value - 1) < 0.001) {
+        delete next[pos][cat];
+        if (!Object.keys(next[pos]).length) delete next[pos];
+      } else {
+        next[pos][cat] = Math.round(value * 1000) / 1000;
+      }
+      return next;
+    });
   };
 
   const applyPreset = (name: string) => {
