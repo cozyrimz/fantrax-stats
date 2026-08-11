@@ -12,7 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-from typing import Dict, Iterable, List
+from typing import Dict, Iterable, List, Set, Tuple
 
 import numpy as np
 import pandas as pd
@@ -30,8 +30,7 @@ CANVAS_NAME = "scoring-lab.canvas.tsx"
 # Categories always exposed as levers, whatever their share of points.
 ALWAYS_LEVERS = ["G", "A", "CS", "SOT", "KP"]
 
-# How many sliders to fill in by point impact. The recommendation's own
-# categories are always exposed on top of these, so it stays fully adjustable.
+# How many categories count as high-impact when "hide low-impact stats" is on.
 MAX_LEVERS = 20
 
 # Players kept per position: comfortably past league-wide starter demand so
@@ -62,19 +61,8 @@ PRESET_TIPS = {
 }
 
 
-def choose_levers(
-    working: pd.DataFrame,
-    contributions: pd.DataFrame,
-    weights: Dict[str, Dict[str, float]],
-    required: Iterable[str] = (),
-) -> List[str]:
-    """Pick the sliders to expose, biggest movers of points first.
-
-    Anything a preset changes has to be exposed, or that preset would appear in
-    the canvas as a partial version of itself and land on different numbers than
-    the written analysis.
-    """
-    impact = contributions.abs().sum().sort_values(ascending=False)
+def high_impact_levers(impact: pd.Series, required: Iterable[str]) -> Set[str]:
+    """Categories that move the most points — the default compact slider set."""
     levers = [c for c in ALWAYS_LEVERS if c in impact.index]
     for category in required:
         if category in impact.index and category not in levers:
@@ -84,7 +72,33 @@ def choose_levers(
             break
         if category not in levers:
             levers.append(category)
-    return levers
+    return set(levers)
+
+
+def choose_levers(
+    working: pd.DataFrame,
+    contributions: pd.DataFrame,
+    weights: Dict[str, Dict[str, float]],
+    required: Iterable[str] = (),
+) -> Tuple[List[str], Set[str]]:
+    """Every non-zero weight is a lever; high-impact is the top ~20 by point share."""
+    impact = contributions.abs().sum().sort_values(ascending=False)
+    high_impact = high_impact_levers(impact, required)
+
+    all_cats: Set[str] = set()
+    for table in weights.values():
+        for category, value in table.items():
+            if value != 0:
+                all_cats.add(category)
+
+    def sort_key(category: str) -> tuple:
+        if category in ALWAYS_LEVERS:
+            return (0, ALWAYS_LEVERS.index(category))
+        if category in impact.index:
+            return (1, -float(impact[category]))
+        return (2, category)
+
+    return sorted(all_cats, key=sort_key), high_impact
 
 
 def categories_used_by(proposal: Dict) -> List[str]:
@@ -106,7 +120,7 @@ def build_payload(output_dir: Path, required: Iterable[str] = ()) -> Dict:
     # Levers are chosen from the full pool so every season's recommendation
     # category can appear as a slider when present in the data.
     _, working_all, contributions = diagnose.compute_metrics(totals, weights)
-    levers = choose_levers(working_all, contributions, weights, required)
+    levers, high_impact = choose_levers(working_all, contributions, weights, required)
 
     kept = []
     for season in sorted(totals["season"].unique()):
@@ -151,7 +165,9 @@ def build_payload(output_dir: Path, required: Iterable[str] = ()) -> Dict:
     seasons = sorted(totals["season"].unique().tolist())
 
     return {
-        "levers": [{"c": c, "name": names.get(c, c)} for c in levers],
+        "levers": [
+            {"c": c, "name": names.get(c, c), "highImpact": c in high_impact} for c in levers
+        ],
         "weights": {
             pos: {c: table.get(c, 0.0) for c in levers if c in table}
             for pos, table in weights.items()
@@ -204,7 +220,7 @@ import {
   useHostTheme,
 } from "cursor/canvas";
 
-type Lever = { c: string; name: string };
+type Lever = { c: string; name: string; highImpact?: boolean };
 type Player = { n: string; p: string; a: string; y: string; g: number; b: number; s: number[] };
 
 const DATA = __DATA__ as {
@@ -479,6 +495,17 @@ export default function ScoringLab() {
     "lab-list-season",
     DATA.seasons[DATA.seasons.length - 1] ?? "",
   );
+  const [hideLowImpact, setHideLowImpact] = useCanvasState<boolean>(
+    "lab-hide-low-impact",
+    false,
+  );
+
+  const visibleLevers = DATA.levers.filter((lever) => {
+    if (DATA.weights[position]?.[lever.c] === undefined) return false;
+    if (!hideLowImpact) return true;
+    const factor = multipliers[position]?.[lever.c] ?? 1;
+    return lever.highImpact || Math.abs(factor - 1) > 0.001;
+  });
 
   const weights = scaleWeights(multipliers);
   const current = analyse(weights, listSeason);
@@ -593,7 +620,7 @@ export default function ScoringLab() {
         </CardHeader>
         <CardBody>
           <Stack gap={12}>
-            <Row gap={8} wrap>
+            <Row gap={8} wrap align="center">
               {POSITIONS.map((pos) => (
                 <span key={pos}>
                   <Pill active={pos === position} onClick={() => setPosition(pos)}>
@@ -601,10 +628,21 @@ export default function ScoringLab() {
                   </Pill>
                 </span>
               ))}
+              <Spacer />
+              <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={hideLowImpact}
+                  onChange={(e) => setHideLowImpact(e.target.checked)}
+                />
+                <Text size="small" tone="secondary">
+                  Hide low-impact stats
+                </Text>
+              </label>
             </Row>
             <Divider />
             <Stack gap={8}>
-              {DATA.levers.map((lever) => (
+              {visibleLevers.map((lever) => (
                 <div key={`${position}-${lever.c}`}>
                   <WeightSlider
                     lever={lever}
@@ -777,10 +815,9 @@ export default function ScoringLab() {
       </Stack>
 
       <Callout tone="neutral" title="How points are recomputed">
-        Scoring is linear in the match statistics, so a player's season total is the sum of every
-        category weight times the volume they produced. Categories not exposed as sliders are held
-        at their current weight and folded into each player's base score, which is why totals here
-        match Fantrax exactly when every slider sits at its original value.
+        Every category with a non-zero weight is adjustable. Totals always recompute from the full
+        stat line; hide low-impact stats to collapse the list to the categories that move the most
+        points (plus any you have changed).
       </Callout>
     </Stack>
   );

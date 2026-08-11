@@ -334,6 +334,9 @@ HTML = r"""<!DOCTYPE html>
     }
     .method-foot { margin-top: 14px !important; font-size: 0.82rem; }
     .method-foot a { color: var(--accent); }
+    .filter-row { display: flex; align-items: center; gap: 16px; margin-bottom: 12px; flex-wrap: wrap; }
+    .filter-row label { display: flex; align-items: center; gap: 6px; font-size: 0.82rem; color: var(--muted); cursor: pointer; user-select: none; }
+    .filter-row input[type="checkbox"] { accent-color: var(--accent); }
   </style>
 </head>
 <body>
@@ -363,7 +366,11 @@ HTML = r"""<!DOCTYPE html>
     <div class="card section">
       <div class="card-hd">Category weights <span style="float:right;font-weight:400;color:var(--muted)">current → proposed</span></div>
       <div class="card-bd">
-        <div class="row" style="margin-bottom:12px" id="pos-tabs"></div>
+        <div class="filter-row">
+          <span id="pos-tabs"></span>
+          <span class="spacer"></span>
+          <label><input type="checkbox" id="hide-low-impact" /> Hide low-impact stats</label>
+        </div>
         <div id="sliders"></div>
       </div>
     </div>
@@ -410,7 +417,7 @@ HTML = r"""<!DOCTYPE html>
 
     <div class="callout section">
       <strong>How points are recomputed</strong>
-      Scoring is linear in the match statistics. Categories not exposed as sliders are folded into each player's base score, so totals match Fantrax exactly when every slider sits at its original value.
+      Every category with a non-zero weight is adjustable. Totals always recompute from the full stat line; use “Hide low-impact stats” to collapse the list to the categories that move the most points (plus any you have changed).
     </div>
   </div>
   <div id="float-tip" role="tooltip" hidden></div>
@@ -447,6 +454,16 @@ HTML = r"""<!DOCTYPE html>
     let multipliers = loadJson("scoring-multipliers", {});
     let position = localStorage.getItem("lab-position") || "D";
     let listSeason = localStorage.getItem("lab-list-season") || DATA.seasons[DATA.seasons.length - 1];
+    let hideLowImpact = localStorage.getItem("lab-hide-low-impact") === "true";
+
+    function visibleLevers(pos) {
+      return DATA.levers.filter(lever => {
+        if (DATA.weights[pos]?.[lever.c] === undefined) return false;
+        if (!hideLowImpact) return true;
+        const factor = (multipliers[pos] && multipliers[pos][lever.c]) || 1;
+        return lever.highImpact || Math.abs(factor - 1) > 0.001;
+      });
+    }
 
     let charts = {};
 
@@ -457,6 +474,7 @@ HTML = r"""<!DOCTYPE html>
       localStorage.setItem("scoring-multipliers", JSON.stringify(multipliers));
       localStorage.setItem("lab-position", position);
       localStorage.setItem("lab-list-season", listSeason);
+      localStorage.setItem("lab-hide-low-impact", hideLowImpact ? "true" : "false");
     }
 
     function scaleWeights(m) {
@@ -734,8 +752,9 @@ HTML = r"""<!DOCTYPE html>
       document.getElementById("pos-tabs").innerHTML = POSITIONS.map(pos =>
         `<button class="pill ${pos === position ? "active" : ""}" data-pos="${pos}">${POS_NAMES[pos]}</button>`
       ).join("");
+      document.getElementById("hide-low-impact").checked = hideLowImpact;
 
-      document.getElementById("sliders").innerHTML = DATA.levers.map((lever, i) => {
+      document.getElementById("sliders").innerHTML = visibleLevers(position).map((lever, i) => {
         const base = DATA.weights[position]?.[lever.c];
         if (base === undefined) return "";
         const factor = (multipliers[position] && multipliers[position][lever.c]) || 1;
@@ -904,6 +923,11 @@ HTML = r"""<!DOCTYPE html>
       if (pos && !pos.dataset.cat) { position = pos.dataset.pos; render(); return; }
       const season = e.target.closest("[data-season]");
       if (season) { listSeason = season.dataset.season; render(); return; }
+    });
+
+    document.getElementById("hide-low-impact").addEventListener("change", e => {
+      hideLowImpact = e.target.checked;
+      render();
     });
 
     document.getElementById("reset-all").addEventListener("click", () => applyPreset("current"));
