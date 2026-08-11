@@ -1,0 +1,31 @@
+{
+  "name": "recommended-hand-tuned",
+  "description": "Manual tuning from current league scoring: raise tackles, interceptions, and creator stats; trim some volume categories on outfield positions. Keepers unchanged.",
+  "scale": {},
+  "multiply": {},
+  "set": {
+    "D": {
+      "SOT": 3.5,
+      "CLR": 1.25,
+      "TkW": 1.3,
+      "Int": 1.3
+    },
+    "M": {
+      "CLR": 0.75,
+      "AP": 0.07,
+      "TkW": 1.2,
+      "Int": 1.2,
+      "LBA": 0.75,
+      "CoS": 2.0
+    },
+    "F": {
+      "SOT": 4.0,
+      "KP": 2.5,
+      "DW": 0.8,
+      "BR": 0.8,
+      "TkW": 1.5,
+      "Int": 1.5,
+      "CoS": 2.0
+    }
+  }
+}

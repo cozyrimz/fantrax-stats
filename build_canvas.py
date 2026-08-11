@@ -44,6 +44,7 @@ PRESET_EXCLUDE = frozenset({"identity", "recommended-2023-24", "recommended-2024
 # Button order in the preset row; anything else sorts alphabetically after these.
 PRESET_ORDER = [
     "recommended",
+    "recommended-hand-tuned",
     "recommended-reduce-team-dependency",
     "recommended-2025-26",
     "flatten",
@@ -52,6 +53,7 @@ PRESET_ORDER = [
 
 PRESET_TIPS = {
     "recommended": "Trim volume stats and rebalance the top-fifty mix across all three seasons, with a forward scoring boost.",
+    "recommended-hand-tuned": "Manual tuning from current scoring: more defensive actions and creator stats; keepers unchanged.",
     "recommended-reduce-team-dependency": "Same rebalance, but cuts clean sheets and other team-result stats in favour of individual actions.",
     "recommended-2025-26": "Original recommendation tuned on 2025-26 only.",
     "flatten": "Doubles volume categories as a control — the opposite of the recommendation.",
@@ -841,6 +843,9 @@ def resolve_required_levers(output_dir: Path, presets_dir: Path) -> List[str]:
     team_reduce = presets_dir / "recommended-reduce-team-dependency.json"
     if team_reduce.exists() and team_reduce not in paths:
         paths.append(team_reduce)
+    hand_tuned = presets_dir / "recommended-hand-tuned.json"
+    if hand_tuned.exists() and hand_tuned not in paths:
+        paths.append(hand_tuned)
     seasons = validate.seasons_available(output_dir)
     if seasons:
         latest = presets_dir / ("recommended-%s.json" % seasons[-1])
