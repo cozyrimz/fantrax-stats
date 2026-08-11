@@ -42,11 +42,18 @@ KEEP_PER_POSITION = 110
 PRESET_EXCLUDE = frozenset({"identity", "recommended-2023-24", "recommended-2024-25"})
 
 # Button order in the preset row; anything else sorts alphabetically after these.
-PRESET_ORDER = ["recommended", "recommended-2025-26", "flatten", "lift-scarcity"]
+PRESET_ORDER = [
+    "recommended",
+    "recommended-reduce-team-dependency",
+    "recommended-2025-26",
+    "flatten",
+    "lift-scarcity",
+]
 
 PRESET_TIPS = {
-    "recommended": "Trim volume and team-result stats, rebalance across three seasons, and boost individual actions plus forward scoring.",
-    "recommended-2025-26": "Same approach for 2025-26 only: less clean-sheet weight, more tackles, saves, and goals.",
+    "recommended": "Trim volume stats and rebalance the top-fifty mix across all three seasons, with a forward scoring boost.",
+    "recommended-reduce-team-dependency": "Same rebalance, but cuts clean sheets and other team-result stats in favour of individual actions.",
+    "recommended-2025-26": "Original recommendation tuned on 2025-26 only.",
     "flatten": "Doubles volume categories as a control — the opposite of the recommendation.",
     "lift-scarcity": "Raises goals, assists, big chances, and shots on target only.",
     "trim-volume": "Cuts recoveries, duels, passes, and clearances without rebalancing positions.",
@@ -831,6 +838,9 @@ def resolve_required_levers(output_dir: Path, presets_dir: Path) -> List[str]:
     headline = presets_dir / "recommended.json"
     if headline.exists():
         paths.append(headline)
+    team_reduce = presets_dir / "recommended-reduce-team-dependency.json"
+    if team_reduce.exists() and team_reduce not in paths:
+        paths.append(team_reduce)
     seasons = validate.seasons_available(output_dir)
     if seasons:
         latest = presets_dir / ("recommended-%s.json" % seasons[-1])

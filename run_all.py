@@ -124,6 +124,26 @@ def main() -> None:
     print("Latest season only: recommended-%s.json" % latest)
 
     run_step(
+        "Solving the reduce-team-dependency recommendation (all seasons)",
+        [
+            "tune.py",
+            "--base",
+            "proposals/base-trim-reduce-team-dependency.json",
+            "--name",
+            "recommended-reduce-team-dependency",
+            "--out",
+            str(args.proposals_dir / "recommended-reduce-team-dependency.json"),
+            "--data-dir",
+            str(args.output_dir),
+            "--scale-bias",
+            FORWARD_SCALE_BIAS,
+            "--block-team-carriers",
+        ],
+        root,
+    )
+    print("Reduce team dependency: recommended-reduce-team-dependency.json")
+
+    run_step(
         "Generating the scoring lab canvas",
         ["build_canvas.py", "--presets", str(args.proposals_dir), "--output-dir", str(args.output_dir)],
         root,

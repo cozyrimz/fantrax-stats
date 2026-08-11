@@ -76,6 +76,7 @@ def concentrate_scale(
     ranks: Dict[str, int],
     max_edits: int,
     bounds: Tuple[float, float] = (0.3, 3.0),
+    block_team_carriers: bool = False,
 ) -> Tuple[Dict[str, Dict[str, float]], pd.DataFrame]:
     """Deliver each position's scalar through a few categories instead of all of them.
 
@@ -122,7 +123,7 @@ def concentrate_scale(
         spread = share.std() / share.mean().replace(0, np.nan)
         volume = contribution[categories].sum()
         ranked = sorted(
-            (c for c in categories if volume[c] > 0 and c not in TEAM_DEPENDENT),
+            (c for c in categories if volume[c] > 0 and (not block_team_carriers or c not in TEAM_DEPENDENT)),
             key=lambda c: (spread.get(c, np.inf), -volume[c]),
         )
 
@@ -255,6 +256,14 @@ def main() -> None:
             "past strict slot balance"
         ),
     )
+    parser.add_argument(
+        "--block-team-carriers",
+        action="store_true",
+        help=(
+            "Do not deliver position scalars through clean sheets and other "
+            "team-result categories"
+        ),
+    )
     args = parser.parse_args()
 
     try:
@@ -334,6 +343,7 @@ def main() -> None:
             marginal_ranks(tier),
             args.max_edits,
             bounds=(1 / args.max_lever, args.max_lever),
+            block_team_carriers=args.block_team_carriers,
         )
         levers: Dict[str, Dict[str, float]] = {}
         for position, table in concentrated.items():
