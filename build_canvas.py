@@ -45,8 +45,8 @@ PRESET_EXCLUDE = frozenset({"identity", "recommended-2023-24", "recommended-2024
 PRESET_ORDER = ["recommended", "recommended-2025-26", "flatten", "lift-scarcity"]
 
 PRESET_TIPS = {
-    "recommended": "Trim volume stats and rebalance the top-fifty mix across all three seasons.",
-    "recommended-2025-26": "Same trims and rebalance, tuned on 2025-26 only.",
+    "recommended": "Trim volume stats, rebalance positions across all three seasons, and boost forward goals, shots and assists so strikers outside the top clubs carry more value.",
+    "recommended-2025-26": "Same approach tuned on 2025-26 only, with extra weight on forward scoring output.",
     "flatten": "Doubles volume categories as a control — the opposite of the recommendation.",
     "lift-scarcity": "Raises goals, assists, big chances, and shots on target only.",
     "trim-volume": "Cuts recoveries, duels, passes, and clearances without rebalancing positions.",

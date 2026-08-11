@@ -240,7 +240,21 @@ def main() -> None:
             "position closer to the full scalar, at the cost of more categories"
         ),
     )
+    parser.add_argument(
+        "--scale-bias",
+        default="{}",
+        help=(
+            "JSON map of extra per-position multipliers applied after the scalar "
+            "solve, e.g. '{\"F\": 1.15, \"D\": 0.98}' to lift forwards slightly "
+            "past strict slot balance"
+        ),
+    )
     args = parser.parse_args()
+
+    try:
+        scale_bias = json.loads(args.scale_bias)
+    except json.JSONDecodeError as exc:
+        raise SystemExit("Invalid --scale-bias JSON: %s" % exc) from exc
 
     data_dir = args.data_dir or args.output_dir
     base = json.loads(args.base.read_text(encoding="utf-8"))
@@ -278,6 +292,10 @@ def main() -> None:
     composed = {p: base_scale.get(p, 1.0) * v for p, v in solved.items()}
     for position, factor in base_scale.items():
         composed.setdefault(position, factor)
+    for position, factor in scale_bias.items():
+        composed[position] = composed.get(position, 1.0) * factor
+    if scale_bias:
+        print("Scale bias applied: %s -> %s" % (scale_bias, {p: round(composed[p], 3) for p in composed}))
 
     floor, ceiling = 1 / args.max_scale, args.max_scale
     clamped = {p: round(min(ceiling, max(floor, v)), 3) for p, v in composed.items()}

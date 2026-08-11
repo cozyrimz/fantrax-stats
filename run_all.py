@@ -17,6 +17,11 @@ from pathlib import Path
 
 import validate
 
+# Lift forwards slightly past strict slot balance and trim defenders a touch,
+# after raising goals, shots on target and assists in the forward base trim.
+FORWARD_SCALE_BIAS = '{"F": 1.15, "D": 0.98}'
+
+
 SHARED_STEPS = [
     ("Building datasets from cache", ["build_dataset.py"]),
     ("Recovering scoring weights", ["recover_weights.py"]),
@@ -43,6 +48,8 @@ def season_steps(season: str, season_dir: Path, proposal: Path, data_dir: Path) 
                 "recommended-%s" % season,
                 "--out",
                 str(proposal),
+                "--scale-bias",
+                FORWARD_SCALE_BIAS,
             ]
             + shared,
         ),
@@ -107,6 +114,8 @@ def main() -> None:
             str(args.proposals_dir / "recommended.json"),
             "--data-dir",
             str(args.output_dir),
+            "--scale-bias",
+            FORWARD_SCALE_BIAS,
         ],
         root,
     )
