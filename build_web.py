@@ -405,6 +405,7 @@ HTML = r"""<!DOCTYPE html>
       ratio: "Season points of the #1 player divided by the #50 player in the selected season. Lower means the elite tier is less far ahead.",
       top10: "What fraction of all points scored by the top fifty players is concentrated in just the top ten. Lower means the elite tier is less top-heavy.",
       mix: "How many of the top fifty scorers are defenders, midfielders, forwards, and keepers. Compare to your lineup slots (roughly 36% / 36% / 18% / 10%).",
+      mix150: "Same breakdown for the top 150 scorers in the selected season — a wider elite tier, closer to what the pooled recommendation balances across three seasons.",
     };
 
     const DETAIL_TIPS = {
@@ -505,6 +506,7 @@ HTML = r"""<!DOCTYPE html>
       }
       const vor = ranked.map(r => r.points - (replacement[r.player.p] ?? 0));
       const top50 = ranked.slice(0, 50);
+      const top150 = ranked.slice(0, 150);
       const positions = POSITIONS.map(pos => {
         const pool = byPosition[pos];
         const count = demand[pos] || 0;
@@ -519,6 +521,7 @@ HTML = r"""<!DOCTYPE html>
           surplus: usable - count,
           eliteMultiple: replacement[pos] > 0 ? eliteMean / replacement[pos] : null,
           inTop50: top50.filter(r => r.player.p === pos).length,
+          inTop150: top150.filter(r => r.player.p === pos).length,
         };
       });
       return {
@@ -650,6 +653,10 @@ HTML = r"""<!DOCTYPE html>
         <div class="stat">
           <div class="val">${current.positions.map(p => p.inTop50).join(" / ")}</div>
           <div class="lbl">${tip("Top 50 mix (D / M / F / G)", STAT_TIPS.mix)}</div>
+        </div>
+        <div class="stat">
+          <div class="val">${current.positions.map(p => p.inTop150).join(" / ")}</div>
+          <div class="lbl">${tip("Top 150 mix (D / M / F / G)", STAT_TIPS.mix150)}</div>
         </div>`;
 
       document.getElementById("pos-tabs").innerHTML = POSITIONS.map(pos =>

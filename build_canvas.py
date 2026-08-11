@@ -312,6 +312,7 @@ function analyse(weights: Record<string, Record<string, number>>, season?: strin
 
   const vor = ranked.map((row) => row.points - (replacement[row.player.p] ?? 0));
   const top50 = ranked.slice(0, 50);
+  const top150 = ranked.slice(0, 150);
 
   const positions = POSITIONS.map((pos) => {
     const pool = byPosition[pos];
@@ -335,6 +336,7 @@ function analyse(weights: Record<string, Record<string, number>>, season?: strin
       surplus: usable - count,
       eliteMultiple: replacement[pos] > 0 ? eliteMean / replacement[pos] : null,
       inTop50: top50.filter((row) => row.player.p === pos).length,
+      inTop150: top150.filter((row) => row.player.p === pos).length,
     };
   });
 
@@ -455,7 +457,7 @@ export default function ScoringLab() {
         </Text>
       </Stack>
 
-      <Grid columns={4} gap={16}>
+      <Grid columns={5} gap={16}>
         <Stat
           value={current.gini.toFixed(3)}
           label={`Value inequality (Gini) · ${delta(current.gini, baseline.gini)}`}
@@ -474,6 +476,11 @@ export default function ScoringLab() {
         <Stat
           value={current.positions.map((p) => p.inTop50).join(" / ")}
           label="Top 50 mix (D / M / F / G)"
+        />
+        <Stat
+          value={current.positions.map((p) => p.inTop150).join(" / ")}
+          label="Top 150 mix (D / M / F / G)"
+          title="Positional mix among the top 150 scorers in the selected season."
         />
       </Grid>
 
