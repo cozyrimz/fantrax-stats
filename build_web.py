@@ -70,10 +70,13 @@ def methodology_html(seasons: list[str], player_count: int) -> str:
           the solved one.
         </p>
 
-        <h3>Two recommended presets</h3>
+        <h3>Recommended presets</h3>
         <ul>
           <li><strong>recommended</strong> — steps 1–3 run on all three seasons pooled, so the
             positional mix target reflects how the league behaved across {season_list}.</li>
+          <li><strong>recommended-reduce-team-dependency</strong> — same rebalance, but also cuts
+            clean sheets and other team-result stats in favour of individual actions (tackles,
+            interceptions, saves, key passes).</li>
           <li><strong>recommended-{latest}</strong> — same process on {latest} only, if you prefer
             weights tuned to the most recent player pool and scoring environment.</li>
         </ul>
