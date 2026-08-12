@@ -10,6 +10,7 @@ still reproducing exact points for any weight the user picks.
 from __future__ import annotations
 
 import argparse
+import html
 import json
 from pathlib import Path
 from typing import Dict, Iterable, List, Set, Tuple
@@ -26,6 +27,7 @@ CANVAS_DIR = Path(
     "/Users/sarimshah/.cursor/projects/Users-sarimshah-Code-fantrax-stats/canvases"
 )
 CANVAS_NAME = "scoring-lab.canvas.tsx"
+REPO_URL = "https://github.com/cozyrimz/fantrax-stats"
 
 # Label for the zero-multiplier baseline (current Fantrax league weights).
 CURRENT_SCORING_LABEL = "Last Year 2025-26"
@@ -79,6 +81,75 @@ PRESET_TIPS = {
     "lift-scarcity": "Raises goals, assists, big chances, and shots on target only.",
     "trim-volume": "Cuts recoveries, duels, passes, and clearances without rebalancing positions.",
 }
+
+RECOMMENDED_PRESETS = frozenset({
+    "recommended",
+    "recommended-reduce-team-dependency",
+    "recommended-2025-26",
+})
+
+
+def methodology_appendix_html(seasons: list[str], player_count: int) -> str:
+    """Shared pipeline explanation appended to recommended preset descriptions."""
+    season_list = ", ".join(seasons) if seasons else "available seasons"
+    latest = seasons[-1] if seasons else "the latest season"
+    return f"""
+        <h3>How this was calculated</h3>
+        <p>
+          Not a hand-tuned guess — replayed over {player_count:,} player-seasons of real Fantrax
+          per-game logs ({season_list}), then checked on measurable fairness grounds.
+        </p>
+        <h3>What we were fixing</h3>
+        <p>
+          Current scoring pays heavily for categories that track minutes more than skill: ball
+          recoveries, duels won, accurate passes, long balls, and (for defenders) clearances and
+          aerials. That pushes holding midfielders and accumulating centre backs up the rankings
+          and makes the top fifty defender-heavy compared with how many of each position your
+          lineup actually starts.
+        </p>
+        <h3>Step 1 — Trim volume, lift skill</h3>
+        <p>
+          Cut high-volume, low-variance categories and raise rarer ones: tackles won and
+          interceptions for ball-winners; key passes, crosses, corners forced, and dribbles for
+          creators and attackers.
+        </p>
+        <h3>Step 2 — Rebalance positions</h3>
+        <p>
+          Solve one multiplier per position so the marginal starter at each position is worth
+          roughly the same, based on roster rules: one keeper, three to five defenders, three to
+          five midfielders, one to three forwards across twelve teams.
+        </p>
+        <h3>Step 3 — Round for Fantrax entry</h3>
+        <p>
+          Concentrate the solver output into about thirty category changes, round to enterable
+          weights, and re-check against the full match data.
+        </p>
+        <h3>What we checked</h3>
+        <p>
+          Value inequality (Gini over replacement), positional mix of the top fifty versus starting
+          slots, waiver depth, and weekly leaderboard churn.
+        </p>
+        <p class="method-foot">
+          Full pipeline and reports:
+          <a href="{REPO_URL}">{REPO_URL}</a>
+          (see <code>run_all.py</code>, <code>tune.py</code>, and
+          <code>output/seasons/{latest}/report.md</code>).
+        </p>"""
+
+
+def enrich_preset_details(
+    details: Dict[str, str], seasons: list[str], player_count: int
+) -> Dict[str, str]:
+    """Format preset descriptions; append shared methodology to recommended presets."""
+    appendix = methodology_appendix_html(seasons, player_count)
+    enriched: Dict[str, str] = {}
+    for name, body in details.items():
+        safe = html.escape(body)
+        if name in RECOMMENDED_PRESETS:
+            enriched[name] = f"<p>{safe}</p>{appendix}"
+        else:
+            enriched[name] = f"<p>{safe}</p>"
+    return enriched
 
 
 def high_impact_levers(impact: pd.Series, required: Iterable[str]) -> Set[str]:
@@ -663,7 +734,7 @@ export default function ScoringLab() {
         </Row>
         {showPresetDetails ? (
           <Callout tone="neutral" title={activePreset}>
-            {PRESET_DETAILS[activePreset]}
+            <div dangerouslySetInnerHTML={{ __html: PRESET_DETAILS[activePreset] }} />
           </Callout>
         ) : null}
       </Stack>
@@ -978,6 +1049,9 @@ def main() -> None:
 
     presets, preset_tips, preset_details, secondary_order, skipped = collect_presets(
         args.output_dir, payload, args.presets
+    )
+    preset_details = enrich_preset_details(
+        preset_details, payload.get("seasons", []), payload.get("playerCount", 0)
     )
 
     source = TEMPLATE.replace("__DATA__", json.dumps(payload, separators=(",", ":")))

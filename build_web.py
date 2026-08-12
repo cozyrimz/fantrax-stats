@@ -16,96 +16,11 @@ from build_canvas import (
     PRIMARY_PRESETS,
     build_payload,
     collect_presets,
+    enrich_preset_details,
     resolve_required_levers,
 )
 
 DOCS_DIR = Path(__file__).parent / "docs"
-REPO_URL = "https://github.com/cozyrimz/fantrax-stats"
-
-
-def methodology_html(seasons: list[str], player_count: int) -> str:
-    """Expandable reference for how the recommended presets were derived."""
-    season_list = ", ".join(seasons) if seasons else "available seasons"
-    latest = seasons[-1] if seasons else "the latest season"
-    return f"""
-    <details id="methodology" class="methodology section">
-      <summary>See the strategy behind calculating the recommended preset</summary>
-      <div class="method-body">
-        <p>
-          The <strong>recommended</strong> and <strong>recommended-{latest}</strong> presets are not
-          hand-tuned guesses. They come from replaying proposed weight changes over
-          {player_count:,} player-seasons of real Fantrax per-game logs ({season_list}), then
-          checking whether the resulting league looks fairer on measurable grounds.
-        </p>
-
-        <h3>What we were fixing</h3>
-        <p>
-          The current scoring pays heavily for categories that track minutes more than skill:
-          ball recoveries, duels won, accurate passes, long balls, and (for defenders) clearances
-          and aerials. Together those categories are roughly half of all outfield points, barely
-          separate elite players from replacements, and correlate almost perfectly with games played.
-          That pushes holding midfielders and accumulating centre backs up the rankings and makes
-          the top fifty defender-heavy compared with how many of each position your lineup actually
-          starts.
-        </p>
-
-        <h3>Step 1 — Trim volume, lift skill</h3>
-        <p>
-          First we cut the high-volume, low-variance categories and raise categories that require
-          something rarer: tackles won and interceptions for ball-winners; key passes, crosses,
-          corners forced, and dribbles for creators and attackers. That changes <em>which</em>
-          players within a position are valuable without yet fixing how many of each position reach
-          the top of the league.
-        </p>
-
-        <h3>Step 2 — Rebalance positions</h3>
-        <p>
-          Those trims hit defenders and holding midfielders hardest, so we solve one multiplier per
-          position so the player at each position's marginal starter rank is worth roughly the same.
-          Marginal rank comes from your roster rules: one keeper, three to five defenders, three to
-          five midfielders, one to three forwards across twelve teams. Scaling a whole position cannot
-          reorder players inside it, so this step only fixes <em>how many</em> of each position land
-          in the elite tier, not the style mix within a position (that is step 1).
-        </p>
-
-        <h3>Step 3 — Round for Fantrax entry</h3>
-        <p>
-          The solver's output is concentrated into about thirty category changes instead of retyping
-          every weight a position scores. Weights are rounded to numbers you can enter in league
-          settings, then re-checked against the full match data so the rounded set still behaves like
-          the solved one.
-        </p>
-
-        <h3>Recommended presets</h3>
-        <ul>
-          <li><strong>recommended</strong> — steps 1–3 run on all three seasons pooled, so the
-            positional mix target reflects how the league behaved across {season_list}.</li>
-          <li><strong>recommended-reduce-team-dependency</strong> — same rebalance, but also cuts
-            clean sheets and other team-result stats in favour of individual actions (tackles,
-            interceptions, saves, key passes).</li>
-          <li><strong>recommended-{latest}</strong> — same process on {latest} only, if you prefer
-            weights tuned to the most recent player pool and scoring environment.</li>
-        </ul>
-
-        <h3>What we checked</h3>
-        <p>
-          Each proposal is scored on value inequality (Gini over replacement level), positional mix
-          of the top fifty versus starting slots, waiver depth (players within 80% of a median
-          starter), and weekly leaderboard churn. The volume trims improve variety and weekly
-          movement; positional scalars bring D/M/F/G counts in the top fifty closer to lineup
-          demand. Season-long top-heaviness barely moves — that trade-off is structural to linear
-          scoring with a minutes floor.
-        </p>
-
-        <p class="method-foot">
-          Full pipeline, scripts, and per-season written reports:
-          <a href="{REPO_URL}">{REPO_URL}</a>
-          (see <code>run_all.py</code>, <code>tune.py</code>, and <code>output/seasons/&lt;season&gt;/report.md</code>).
-          You can load either preset above and adjust any slider to see the effect before changing
-          league settings.
-        </p>
-      </div>
-    </details>"""
 
 
 HTML = r"""<!DOCTYPE html>
@@ -294,52 +209,24 @@ HTML = r"""<!DOCTYPE html>
     .callout strong { display: block; margin-bottom: 4px; }
     .section { margin-bottom: 24px; }
     .spacer { flex: 1; }
-    .methodology {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 0;
-    }
-    .methodology summary {
-      padding: 12px 16px;
-      font-weight: 600;
-      font-size: 0.9rem;
-      cursor: pointer;
-      list-style: none;
-    }
-    .methodology summary::-webkit-details-marker { display: none; }
-    .methodology summary::before {
-      content: "▸ ";
-      color: var(--muted);
-      font-size: 0.85em;
-    }
-    .methodology[open] summary::before { content: "▾ "; }
-    .methodology[open] summary { border-bottom: 1px solid var(--border); }
-    .method-body {
-      padding: 14px 16px 16px;
-      font-size: 0.88rem;
-      color: var(--text);
-      max-width: 52rem;
-    }
-    .method-body h3 {
+    .preset-details { font-size: 0.88rem; margin: 0; }
+    #preset-details-body { margin-top: 6px; color: var(--muted); line-height: 1.45; }
+    #preset-details-body p { margin: 0 0 10px; }
+    #preset-details-body h3 {
       font-size: 0.92rem;
       font-weight: 600;
-      margin: 18px 0 6px;
+      margin: 16px 0 6px;
+      color: var(--text);
     }
-    .method-body h3:first-of-type { margin-top: 0; }
-    .method-body p { margin: 0 0 10px; color: var(--muted); }
-    .method-body ul { margin: 0 0 10px; padding-left: 1.2rem; color: var(--muted); }
-    .method-body li { margin-bottom: 6px; }
-    .method-body strong { color: var(--text); font-weight: 600; }
-    .method-body code {
+    #preset-details-body h3:first-of-type { margin-top: 0; }
+    #preset-details-body code {
       font-family: var(--mono);
       font-size: 0.82em;
       background: var(--bg);
       padding: 1px 4px;
       border-radius: 3px;
     }
-    .method-foot { margin-top: 14px !important; font-size: 0.82rem; }
-    .method-foot a { color: var(--accent); }
+    #preset-details-body a { color: var(--accent); }
     .filter-row { display: flex; align-items: center; gap: 16px; margin-bottom: 12px; flex-wrap: wrap; }
     .filter-row label { display: flex; align-items: center; gap: 6px; font-size: 0.82rem; color: var(--muted); cursor: pointer; user-select: none; }
     .filter-row input[type="checkbox"] { accent-color: var(--accent); }
@@ -347,8 +234,6 @@ HTML = r"""<!DOCTYPE html>
     .preset-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     .preset-row-secondary { padding-top: 4px; border-top: 1px solid var(--border); }
     .preset-group-label { font-size: 0.82rem; color: var(--muted); min-width: 7rem; }
-    .preset-details { font-size: 0.88rem; margin: 0; }
-    .preset-details p { margin: 6px 0 0; color: var(--muted); line-height: 1.45; }
   </style>
 </head>
 <body>
@@ -373,11 +258,9 @@ HTML = r"""<!DOCTYPE html>
       </div>
       <div id="preset-details" class="callout preset-details" hidden>
         <strong id="preset-details-title"></strong>
-        <p id="preset-details-body"></p>
+        <div id="preset-details-body"></div>
       </div>
     </div>
-
-    __METHODOLOGY__
 
     <div class="card section">
       <div class="card-hd">Category weights <span style="float:right;font-weight:400;color:var(--muted)">current → proposed</span></div>
@@ -488,7 +371,7 @@ HTML = r"""<!DOCTYPE html>
       }
       panel.hidden = false;
       document.getElementById("preset-details-title").textContent = name;
-      document.getElementById("preset-details-body").textContent = PRESET_DETAILS[name];
+      document.getElementById("preset-details-body").innerHTML = PRESET_DETAILS[name];
     }
 
     function visibleLevers(pos) {
@@ -1104,6 +987,9 @@ def main() -> None:
     presets, preset_tips, preset_details, secondary_order, skipped = collect_presets(
         args.output_dir, payload, args.presets
     )
+    preset_details = enrich_preset_details(
+        preset_details, payload.get("seasons", []), payload.get("playerCount", 0)
+    )
 
     html = HTML.replace("__DATA__", json.dumps(payload, separators=(",", ":")))
     html = html.replace("__PRESETS__", json.dumps(presets, separators=(",", ":")))
@@ -1112,10 +998,6 @@ def main() -> None:
     html = html.replace("__PRIMARY_PRESETS__", json.dumps(PRIMARY_PRESETS, separators=(",", ":")))
     html = html.replace("__SECONDARY_PRESET_ORDER__", json.dumps(secondary_order))
     html = html.replace("__DEFAULT_PRESET__", json.dumps(CURRENT_YEAR_PRESET))
-    html = html.replace(
-        "__METHODOLOGY__",
-        methodology_html(payload.get("seasons", []), payload.get("playerCount", 0)),
-    )
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(html, encoding="utf-8")
