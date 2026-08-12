@@ -12,7 +12,8 @@ import json
 from pathlib import Path
 
 from build_canvas import (
-    CURRENT_SCORING_LABEL,
+    CURRENT_YEAR_PRESET,
+    PRIMARY_PRESETS,
     build_payload,
     collect_presets,
     resolve_required_levers,
@@ -342,6 +343,12 @@ HTML = r"""<!DOCTYPE html>
     .filter-row { display: flex; align-items: center; gap: 16px; margin-bottom: 12px; flex-wrap: wrap; }
     .filter-row label { display: flex; align-items: center; gap: 6px; font-size: 0.82rem; color: var(--muted); cursor: pointer; user-select: none; }
     .filter-row input[type="checkbox"] { accent-color: var(--accent); }
+    .preset-section { display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px; }
+    .preset-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .preset-row-secondary { padding-top: 4px; border-top: 1px solid var(--border); }
+    .preset-group-label { font-size: 0.82rem; color: var(--muted); min-width: 7rem; }
+    .preset-details { font-size: 0.88rem; margin: 0; }
+    .preset-details p { margin: 6px 0 0; color: var(--muted); line-height: 1.45; }
   </style>
 </head>
 <body>
@@ -358,12 +365,16 @@ HTML = r"""<!DOCTYPE html>
 
     <div class="stats" id="stats"></div>
 
-    <div class="row section">
-      <span style="font-size:0.82rem;color:var(--muted)">Presets</span>
-      <button class="pill active" data-preset="current">__CURRENT_SCORING_LABEL__</button>
-      <span id="preset-buttons"></span>
-      <span class="spacer"></span>
-      <button class="btn" id="reset-all">Reset all</button>
+    <div class="preset-section section">
+      <div class="preset-row" id="preset-primary"></div>
+      <div class="preset-row preset-row-secondary">
+        <span class="preset-group-label">Analysis presets</span>
+        <span id="preset-secondary"></span>
+      </div>
+      <div id="preset-details" class="callout preset-details" hidden>
+        <strong id="preset-details-title"></strong>
+        <p id="preset-details-body"></p>
+      </div>
     </div>
 
     __METHODOLOGY__
@@ -431,7 +442,10 @@ HTML = r"""<!DOCTYPE html>
     const DATA = __DATA__;
     const PRESETS = __PRESETS__;
     const PRESET_TIPS = __PRESET_TIPS__;
-    const PRESET_ORDER = __PRESET_ORDER__;
+    const PRESET_DETAILS = __PRESET_DETAILS__;
+    const PRIMARY_PRESETS = __PRIMARY_PRESETS__;
+    const SECONDARY_PRESET_ORDER = __SECONDARY_PRESET_ORDER__;
+    const DEFAULT_PRESET = __DEFAULT_PRESET__;
     const POSITIONS = ["D", "M", "F", "G"];
     const POS_NAMES = { D: "Defenders", M: "Midfielders", F: "Forwards", G: "Keepers" };
     const POS_COLORS = { D: "#1f77b4", M: "#2ca02c", F: "#d62728", G: "#9467bd" };
@@ -460,6 +474,22 @@ HTML = r"""<!DOCTYPE html>
     let position = localStorage.getItem("lab-position") || "D";
     let listSeason = localStorage.getItem("lab-list-season") || DATA.seasons[DATA.seasons.length - 1];
     let hideLowImpact = localStorage.getItem("lab-hide-low-impact") === "true";
+    let activePreset = localStorage.getItem("lab-active-preset") || DEFAULT_PRESET;
+
+    function isPrimaryPreset(name) {
+      return PRIMARY_PRESETS.some(entry => entry.id === name);
+    }
+
+    function updatePresetDetails(name) {
+      const panel = document.getElementById("preset-details");
+      if (isPrimaryPreset(name) || !PRESET_DETAILS[name]) {
+        panel.hidden = true;
+        return;
+      }
+      panel.hidden = false;
+      document.getElementById("preset-details-title").textContent = name;
+      document.getElementById("preset-details-body").textContent = PRESET_DETAILS[name];
+    }
 
     function visibleLevers(pos) {
       return DATA.levers.filter(lever => {
@@ -486,6 +516,7 @@ HTML = r"""<!DOCTYPE html>
       localStorage.setItem("lab-position", position);
       localStorage.setItem("lab-list-season", listSeason);
       localStorage.setItem("lab-hide-low-impact", hideLowImpact ? "true" : "false");
+      localStorage.setItem("lab-active-preset", activePreset);
     }
 
     function scaleWeights(m) {
@@ -627,7 +658,9 @@ HTML = r"""<!DOCTYPE html>
         next[pos] = posTable;
       }
       multipliers = next;
+      activePreset = "";
       document.querySelectorAll("[data-preset]").forEach(el => el.classList.remove("active"));
+      updatePresetDetails("");
       render();
     }
 
@@ -969,18 +1002,31 @@ HTML = r"""<!DOCTYPE html>
     }
 
     function applyPreset(name) {
+      activePreset = name;
       multipliers = name === "current" ? {} : (PRESETS[name] ? JSON.parse(JSON.stringify(PRESETS[name])) : {});
       document.querySelectorAll("[data-preset]").forEach(el => {
         el.classList.toggle("active", el.dataset.preset === name);
       });
+      updatePresetDetails(name);
       render();
     }
 
-    document.querySelector('[data-preset="current"]').innerHTML =
-      tip(__CURRENT_SCORING_LABEL_JS__, PRESET_TIPS.current || "");
-    document.getElementById("preset-buttons").innerHTML = PRESET_ORDER.map(name =>
-      `<button class="pill" data-preset="${esc(name)}">${tip(name, PRESET_TIPS[name] || "")}</button>`
-    ).join("");
+    function renderPresetButtons() {
+      document.getElementById("preset-primary").innerHTML =
+        `<span class="preset-group-label">Compare</span>` +
+        PRIMARY_PRESETS.map(entry =>
+          `<button class="pill ${entry.id === activePreset ? "active" : ""}" data-preset="${esc(entry.id)}" data-tier="primary">${tip(entry.label, PRESET_TIPS[entry.id] || "")}</button>`
+        ).join("") +
+        `<span class="spacer"></span><button class="btn" id="reset-all">Reset all</button>`;
+      document.getElementById("preset-secondary").innerHTML = SECONDARY_PRESET_ORDER
+        .filter(name => PRESETS[name])
+        .map(name =>
+          `<button class="pill ${name === activePreset ? "active" : ""}" data-preset="${esc(name)}" data-tier="secondary">${tip(name, PRESET_TIPS[name] || "")}</button>`
+        ).join("");
+      document.getElementById("reset-all").addEventListener("click", () => applyPreset("current"));
+    }
+
+    renderPresetButtons();
 
     document.addEventListener("click", e => {
       const preset = e.target.closest("[data-preset]");
@@ -1026,11 +1072,19 @@ HTML = r"""<!DOCTYPE html>
       setLeverWeight(weight.dataset.pos, weight.dataset.cat, Number(weight.value) + delta);
     });
 
-    if (Object.keys(multipliers).length) {
+    if (Object.keys(multipliers).length && activePreset) {
+      document.querySelectorAll("[data-preset]").forEach(el => {
+        el.classList.toggle("active", el.dataset.preset === activePreset);
+      });
+      updatePresetDetails(activePreset);
+      render();
+    } else if (Object.keys(multipliers).length) {
       document.querySelectorAll("[data-preset]").forEach(el => el.classList.remove("active"));
+      updatePresetDetails("");
       render();
     } else {
-      applyPreset("current");
+      const valid = activePreset === "current" || PRESETS[activePreset];
+      applyPreset(valid ? activePreset : DEFAULT_PRESET);
     }
   </script>
 </body>
@@ -1047,16 +1101,17 @@ def main() -> None:
 
     required = resolve_required_levers(args.output_dir, args.presets)
     payload = build_payload(args.output_dir, required)
-    presets, preset_tips, preset_order, skipped = collect_presets(
+    presets, preset_tips, preset_details, secondary_order, skipped = collect_presets(
         args.output_dir, payload, args.presets
     )
 
     html = HTML.replace("__DATA__", json.dumps(payload, separators=(",", ":")))
     html = html.replace("__PRESETS__", json.dumps(presets, separators=(",", ":")))
     html = html.replace("__PRESET_TIPS__", json.dumps(preset_tips, separators=(",", ":")))
-    html = html.replace("__PRESET_ORDER__", json.dumps(preset_order))
-    html = html.replace("__CURRENT_SCORING_LABEL__", CURRENT_SCORING_LABEL)
-    html = html.replace("__CURRENT_SCORING_LABEL_JS__", json.dumps(CURRENT_SCORING_LABEL))
+    html = html.replace("__PRESET_DETAILS__", json.dumps(preset_details, separators=(",", ":")))
+    html = html.replace("__PRIMARY_PRESETS__", json.dumps(PRIMARY_PRESETS, separators=(",", ":")))
+    html = html.replace("__SECONDARY_PRESET_ORDER__", json.dumps(secondary_order))
+    html = html.replace("__DEFAULT_PRESET__", json.dumps(CURRENT_YEAR_PRESET))
     html = html.replace(
         "__METHODOLOGY__",
         methodology_html(payload.get("seasons", []), payload.get("playerCount", 0)),

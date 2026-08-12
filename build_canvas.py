@@ -28,7 +28,9 @@ CANVAS_DIR = Path(
 CANVAS_NAME = "scoring-lab.canvas.tsx"
 
 # Label for the zero-multiplier baseline (current Fantrax league weights).
-CURRENT_SCORING_LABEL = "Scoring for Year 2025-2026"
+CURRENT_SCORING_LABEL = "Last Year 2025-26"
+CURRENT_YEAR_PRESET = "Scoring for Year 2026-2027"
+CURRENT_YEAR_LABEL = "Current Year - 2026-27"
 
 # Categories always exposed as levers, whatever their share of points.
 ALWAYS_LEVERS = ["G", "A", "CS", "SOT", "KP"]
@@ -41,23 +43,36 @@ MAX_LEVERS = 20
 KEEP_PER_POSITION = 110
 
 # Presets kept on disk for per-season reports but hidden from the scoring lab UI.
-PRESET_EXCLUDE = frozenset({"identity", "recommended-2023-24", "recommended-2024-25"})
-
-# Button order in the preset row; anything else sorts alphabetically after these.
-PRESET_ORDER = [
-    "Scoring for Year 2026-2027",
-    "recommended",
+PRESET_EXCLUDE = frozenset({
+    "identity",
+    "recommended-2023-24",
+    "recommended-2024-25",
     "Sarims Preset",
+    "volume trims only",
+    "balance-positions",
+    "optimized",
+})
+
+# Headline year comparison (always visible).
+PRIMARY_PRESETS = [
+    {"id": "current", "label": "Last Year 2025-26"},
+    {"id": "Scoring for Year 2026-2027", "label": "Current Year - 2026-27"},
+]
+
+# Analysis and experiment presets in the secondary row.
+SECONDARY_PRESET_ORDER = [
+    "recommended",
     "recommended-reduce-team-dependency",
     "recommended-2025-26",
     "flatten",
     "lift-scarcity",
+    "trim-volume",
 ]
 
 PRESET_TIPS = {
-    "Scoring for Year 2026-2027": "2026-2027 weights: defensive actions, creator stats, and keeper duels/saves tuned up.",
+    "current": "Fantrax league weights used for the 2025-26 season.",
+    "Scoring for Year 2026-2027": "Your tuned weights for the 2026-27 season.",
     "recommended": "Trim volume stats and rebalance the top-fifty mix across all three seasons, with a forward scoring boost.",
-    "Sarims Preset": "Manual tuning from current scoring: more defensive actions and creator stats; keepers unchanged.",
     "recommended-reduce-team-dependency": "Same rebalance, but cuts clean sheets and other team-result stats in favour of individual actions.",
     "recommended-2025-26": "Original recommendation tuned on 2025-26 only.",
     "flatten": "Doubles volume categories as a control — the opposite of the recommendation.",
@@ -256,7 +271,9 @@ const POSITION_NAMES: Record<string, string> = {
 
 const PRESETS: Record<string, Record<string, Record<string, number>>> = __PRESETS__;
 const PRESET_TIPS: Record<string, string> = __PRESET_TIPS__;
-const PRESET_ORDER: string[] = __PRESET_ORDER__;
+const PRESET_DETAILS: Record<string, string> = __PRESET_DETAILS__;
+const PRIMARY_PRESETS: { id: string; label: string }[] = __PRIMARY_PRESETS__;
+const SECONDARY_PRESET_ORDER: string[] = __SECONDARY_PRESET_ORDER__;
 
 function scaleWeights(
   multipliers: Record<string, Record<string, number>>,
@@ -496,6 +513,10 @@ export default function ScoringLab() {
     "scoring-multipliers",
     {},
   );
+  const [activePreset, setActivePreset] = useCanvasState<string>(
+    "lab-active-preset",
+    __CURRENT_YEAR_PRESET__,
+  );
   const [position, setPosition] = useCanvasState<string>("lab-position", "D");
   const [listSeason, setListSeason] = useCanvasState<string>(
     "lab-list-season",
@@ -536,11 +557,16 @@ export default function ScoringLab() {
       }
       return next;
     });
+    setActivePreset("");
   };
 
   const applyPreset = (name: string) => {
+    setActivePreset(name);
     setMultipliers(name === "current" ? {} : PRESETS[name] ?? {});
   };
+
+  const isPrimaryPreset = (name: string) => PRIMARY_PRESETS.some((entry) => entry.id === name);
+  const showPresetDetails = activePreset && !isPrimaryPreset(activePreset) && PRESET_DETAILS[activePreset];
 
   const ranks = [1, 5, 10, 15, 20, 25, 30, 40, 50, 60, 75, 90, 110];
   const seasonGames = DATA.league.seasonGames || 38;
@@ -598,29 +624,49 @@ export default function ScoringLab() {
         />
       </Grid>
 
-      <Row gap={8} align="center" wrap>
-        <Text size="small" tone="secondary">
-          Presets
-        </Text>
-        <Pill
-          onClick={() => applyPreset("current")}
-          active={Object.keys(multipliers).length === 0}
-          title={PRESET_TIPS.current}
-        >
-          __CURRENT_SCORING_LABEL__
-        </Pill>
-        {PRESET_ORDER.map((name) => (
-          <span key={name}>
-            <Pill onClick={() => applyPreset(name)} title={PRESET_TIPS[name]}>
-              {name}
-            </Pill>
-          </span>
-        ))}
-        <Spacer />
-        <Button variant="ghost" onClick={() => setMultipliers({})}>
-          Reset all
-        </Button>
-      </Row>
+      <Stack gap={10}>
+        <Row gap={8} align="center" wrap>
+          <Text size="small" tone="secondary">
+            Compare
+          </Text>
+          {PRIMARY_PRESETS.map((entry) => (
+            <span key={entry.id}>
+              <Pill
+                onClick={() => applyPreset(entry.id)}
+                active={activePreset === entry.id}
+                title={PRESET_TIPS[entry.id]}
+              >
+                {entry.label}
+              </Pill>
+            </span>
+          ))}
+          <Spacer />
+          <Button variant="ghost" onClick={() => applyPreset("current")}>
+            Reset all
+          </Button>
+        </Row>
+        <Row gap={8} align="center" wrap>
+          <Text size="small" tone="secondary">
+            Analysis presets
+          </Text>
+          {SECONDARY_PRESET_ORDER.filter((name) => PRESETS[name]).map((name) => (
+            <span key={name}>
+              <Pill
+                onClick={() => applyPreset(name)}
+                active={activePreset === name}
+                title={PRESET_TIPS[name]}
+              >
+                {name}
+              </Pill>
+            </span>
+          ))}
+        </Row>
+        {showPresetDetails ? (
+          <Callout tone="neutral" title={activePreset}>
+            {PRESET_DETAILS[activePreset]}
+          </Callout>
+        ) : null}
+      </Stack>
 
       <Card>
         <CardHeader trailing={<Text size="small" tone="tertiary">current → proposed</Text>}>
@@ -838,6 +884,7 @@ def collect_presets(
 ) -> tuple[
     Dict[str, Dict[str, Dict[str, float]]],
     Dict[str, str],
+    Dict[str, str],
     List[str],
     List[str],
 ]:
@@ -845,15 +892,17 @@ def collect_presets(
     current = diagnose.load_weights(output_dir)
     lever_categories = {lever["c"] for lever in payload["levers"]}
     presets: Dict[str, Dict[str, Dict[str, float]]] = {}
-    tips: Dict[str, str] = {
-        "current": "Fantrax league weights for the 2025-2026 season.",
-    }
+    tips: Dict[str, str] = dict(PRESET_TIPS)
+    details: Dict[str, str] = {}
     skipped: List[str] = []
+    primary_ids = {entry["id"] for entry in PRIMARY_PRESETS}
     for path in sorted(presets_dir.glob("*.json")):
         proposal = json.loads(path.read_text(encoding="utf-8"))
         name = proposal.get("name", path.stem)
         if name in PRESET_EXCLUDE:
             continue
+        if proposal.get("description"):
+            details[name] = proposal["description"]
         proposed, _ = simulate.apply_proposal(current, proposal)
         table: Dict[str, Dict[str, float]] = {}
         covered = True
@@ -868,15 +917,19 @@ def collect_presets(
                 table.setdefault(position, {})[category] = round(value / base, 4)
         if table and covered:
             presets[name] = table
-            if name in PRESET_TIPS:
-                tips[name] = PRESET_TIPS[name]
-            elif proposal.get("description"):
+            if name not in tips and proposal.get("description"):
                 tips[name] = proposal["description"]
         elif table:
             skipped.append(name)
-    order = [name for name in PRESET_ORDER if name in presets]
-    order.extend(sorted(name for name in presets if name not in order))
-    return presets, tips, order, skipped
+    secondary = [name for name in SECONDARY_PRESET_ORDER if name in presets]
+    secondary.extend(
+        sorted(
+            name
+            for name in presets
+            if name not in secondary and name not in primary_ids
+        )
+    )
+    return presets, tips, details, secondary, skipped
 
 
 def resolve_required_levers(output_dir: Path, presets_dir: Path) -> List[str]:
@@ -888,9 +941,6 @@ def resolve_required_levers(output_dir: Path, presets_dir: Path) -> List[str]:
     team_reduce = presets_dir / "recommended-reduce-team-dependency.json"
     if team_reduce.exists() and team_reduce not in paths:
         paths.append(team_reduce)
-    hand_tuned = presets_dir / "sarims-preset.json"
-    if hand_tuned.exists() and hand_tuned not in paths:
-        paths.append(hand_tuned)
     scoring_2027 = presets_dir / "scoring-2026-2027.json"
     if scoring_2027.exists() and scoring_2027 not in paths:
         paths.append(scoring_2027)
@@ -926,15 +976,17 @@ def main() -> None:
     if args.max_players:
         payload["players"] = payload["players"][: args.max_players]
 
-    presets, preset_tips, preset_order, skipped = collect_presets(
+    presets, preset_tips, preset_details, secondary_order, skipped = collect_presets(
         args.output_dir, payload, args.presets
     )
 
     source = TEMPLATE.replace("__DATA__", json.dumps(payload, separators=(",", ":")))
     source = source.replace("__PRESETS__", json.dumps(presets, indent=2))
     source = source.replace("__PRESET_TIPS__", json.dumps(preset_tips, indent=2))
-    source = source.replace("__PRESET_ORDER__", json.dumps(preset_order))
-    source = source.replace("__CURRENT_SCORING_LABEL__", CURRENT_SCORING_LABEL)
+    source = source.replace("__PRESET_DETAILS__", json.dumps(preset_details, indent=2))
+    source = source.replace("__PRIMARY_PRESETS__", json.dumps(PRIMARY_PRESETS, indent=2))
+    source = source.replace("__SECONDARY_PRESET_ORDER__", json.dumps(secondary_order))
+    source = source.replace("__CURRENT_YEAR_PRESET__", json.dumps(CURRENT_YEAR_PRESET))
 
     CANVAS_DIR.mkdir(parents=True, exist_ok=True)
     target = CANVAS_DIR / args.name
