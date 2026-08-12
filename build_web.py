@@ -377,7 +377,7 @@ HTML = r"""<!DOCTYPE html>
 
     <div class="section">
       <h2>Value curve by position</h2>
-      <p class="caption">Season fantasy points of the nth best player at each position. A flatter line means waiver pickups matter more.</p>
+      <p class="caption">Points per game (left, season ÷ 38) and season total (right) for the nth best player at each position.</p>
       <div class="chart-box"><canvas id="curve-chart"></canvas></div>
       <p class="caption" id="curve-source"></p>
     </div>
@@ -466,6 +466,18 @@ HTML = r"""<!DOCTYPE html>
     }
 
     let charts = {};
+
+    Chart.register({
+      id: "syncSeasonAxis",
+      afterUpdate(chart) {
+        const y = chart.scales.y;
+        const y1 = chart.scales.y1;
+        if (y && y1) {
+          y1.min = y.min;
+          y1.max = y.max;
+        }
+      },
+    });
 
     function loadJson(key, fallback) {
       try { return JSON.parse(localStorage.getItem(key)) || fallback; } catch { return fallback; }
@@ -837,16 +849,19 @@ HTML = r"""<!DOCTYPE html>
 
     function renderCharts(current) {
       const labels = RANKS.map(r => "#" + r);
+      const seasonGames = DATA.league.seasonGames || 38;
       const curveDatasets = POSITIONS.map(pos => ({
         label: POS_NAMES[pos],
         data: RANKS.map(rank => {
           const pool = current.byPosition[pos];
-          return pool && pool.length >= rank ? Math.round(pool[rank - 1].points) : 0;
+          if (!pool || pool.length < rank) return 0;
+          return Math.round((pool[rank - 1].points / seasonGames) * 100) / 100;
         }),
         borderColor: POS_COLORS[pos],
         backgroundColor: POS_COLORS[pos],
         tension: 0.2,
         pointRadius: 3,
+        yAxisID: "y",
       }));
 
       const slotShare = POSITIONS.map(p =>
@@ -857,9 +872,33 @@ HTML = r"""<!DOCTYPE html>
         data: { labels, datasets: curveDatasets },
         options: {
           responsive: true, maintainAspectRatio: false,
-          plugins: { legend: { position: "bottom" } },
+          plugins: {
+            legend: { position: "bottom" },
+            tooltip: {
+              callbacks: {
+                label(ctx) {
+                  const perGame = ctx.parsed.y;
+                  const season = Math.round(perGame * seasonGames);
+                  return `${ctx.dataset.label}: ${perGame.toFixed(2)} pts/g (${season} season)`;
+                },
+              },
+            },
+          },
           scales: {
-            y: { title: { display: true, text: "Season fantasy points" } },
+            y: {
+              position: "left",
+              title: { display: true, text: `Points per game (÷ ${seasonGames})` },
+            },
+            y1: {
+              position: "right",
+              grid: { drawOnChartArea: false },
+              title: { display: true, text: "Season fantasy points" },
+              ticks: {
+                callback(value) {
+                  return Math.round(Number(value) * seasonGames);
+                },
+              },
+            },
             x: { title: { display: true, text: "Rank within position" } },
           },
         },

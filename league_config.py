@@ -29,6 +29,9 @@ FLEX_SLOTS = STARTERS - sum(MIN_ACTIVE.values())
 # across the three outfield positions, giving 1 G / 4 D / 4 M / 2 F per team.
 BASELINE_STARTERS: Dict[str, int] = {"G": 1, "D": 4, "M": 4, "F": 2}
 
+# Benchmark for per-game point rates on the value curve (full EPL season).
+SEASON_GAMES = 38
+
 # Total players rostered across the league.
 ROSTERED_POOL = TEAMS * ROSTER_MAX
 

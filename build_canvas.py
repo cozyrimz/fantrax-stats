@@ -184,6 +184,7 @@ def build_payload(output_dir: Path, required: Iterable[str] = ()) -> Dict:
             "minActive": lc.MIN_ACTIVE,
             "maxActive": lc.MAX_ACTIVE,
             "baseline": lc.BASELINE_STARTERS,
+            "seasonGames": lc.SEASON_GAMES,
         },
         "playerCount": int(len(frame)),
     }
@@ -537,11 +538,13 @@ export default function ScoringLab() {
   };
 
   const ranks = [1, 5, 10, 15, 20, 25, 30, 40, 50, 60, 75, 90, 110];
+  const seasonGames = DATA.league.seasonGames || 38;
   const curveSeries = POSITIONS.map((pos) => ({
     name: POSITION_NAMES[pos],
     data: ranks.map((rank) => {
       const pool = current.byPosition[pos];
-      return pool && pool.length >= rank ? Math.round(pool[rank - 1].points) : 0;
+      if (!pool || pool.length < rank) return 0;
+      return Math.round((pool[rank - 1].points / seasonGames) * 100) / 100;
     }),
   }));
 
@@ -660,18 +663,18 @@ export default function ScoringLab() {
       <Stack gap={8}>
         <H2>Value curve by position</H2>
         <Text size="small" tone="secondary">
-          Season fantasy points of the nth best player at each position. A flatter line means the
-          gap between a star and a replaceable starter is smaller, so waiver pickups matter.
+          Points per game (season total ÷ {seasonGames}) for the nth best player at each position.
+          Multiply by {seasonGames} for the season total.
         </Text>
         <LineChart
           categories={ranks.map((r) => `#${r}`)}
           series={curveSeries}
           height={300}
-          valueSuffix=" pts"
+          valueSuffix=" pts/g"
         />
         <Text size="small" tone="tertiary">
           Source: Fantrax game logs for {listSeason} · x axis is rank within position, y axis is
-          season fantasy points
+          points per game (÷ {seasonGames})
         </Text>
       </Stack>
 
