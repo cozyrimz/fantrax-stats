@@ -11,7 +11,12 @@ import argparse
 import json
 from pathlib import Path
 
-from build_canvas import build_payload, collect_presets, resolve_required_levers
+from build_canvas import (
+    CURRENT_SCORING_LABEL,
+    build_payload,
+    collect_presets,
+    resolve_required_levers,
+)
 
 DOCS_DIR = Path(__file__).parent / "docs"
 REPO_URL = "https://github.com/cozyrimz/fantrax-stats"
@@ -355,7 +360,7 @@ HTML = r"""<!DOCTYPE html>
 
     <div class="row section">
       <span style="font-size:0.82rem;color:var(--muted)">Presets</span>
-      <button class="pill active" data-preset="current">Current scoring</button>
+      <button class="pill active" data-preset="current">__CURRENT_SCORING_LABEL__</button>
       <span id="preset-buttons"></span>
       <span class="spacer"></span>
       <button class="btn" id="reset-all">Reset all</button>
@@ -972,7 +977,7 @@ HTML = r"""<!DOCTYPE html>
     }
 
     document.querySelector('[data-preset="current"]').innerHTML =
-      tip("Current scoring", PRESET_TIPS.current || "");
+      tip(__CURRENT_SCORING_LABEL_JS__, PRESET_TIPS.current || "");
     document.getElementById("preset-buttons").innerHTML = PRESET_ORDER.map(name =>
       `<button class="pill" data-preset="${esc(name)}">${tip(name, PRESET_TIPS[name] || "")}</button>`
     ).join("");
@@ -1050,6 +1055,8 @@ def main() -> None:
     html = html.replace("__PRESETS__", json.dumps(presets, separators=(",", ":")))
     html = html.replace("__PRESET_TIPS__", json.dumps(preset_tips, separators=(",", ":")))
     html = html.replace("__PRESET_ORDER__", json.dumps(preset_order))
+    html = html.replace("__CURRENT_SCORING_LABEL__", CURRENT_SCORING_LABEL)
+    html = html.replace("__CURRENT_SCORING_LABEL_JS__", json.dumps(CURRENT_SCORING_LABEL))
     html = html.replace(
         "__METHODOLOGY__",
         methodology_html(payload.get("seasons", []), payload.get("playerCount", 0)),

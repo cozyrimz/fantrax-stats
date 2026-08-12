@@ -27,6 +27,9 @@ CANVAS_DIR = Path(
 )
 CANVAS_NAME = "scoring-lab.canvas.tsx"
 
+# Label for the zero-multiplier baseline (current Fantrax league weights).
+CURRENT_SCORING_LABEL = "Scoring for Year 2025-2026"
+
 # Categories always exposed as levers, whatever their share of points.
 ALWAYS_LEVERS = ["G", "A", "CS", "SOT", "KP"]
 
@@ -42,6 +45,7 @@ PRESET_EXCLUDE = frozenset({"identity", "recommended-2023-24", "recommended-2024
 
 # Button order in the preset row; anything else sorts alphabetically after these.
 PRESET_ORDER = [
+    "Scoring for Year 2026-2027",
     "recommended",
     "Sarims Preset",
     "recommended-reduce-team-dependency",
@@ -51,6 +55,7 @@ PRESET_ORDER = [
 ]
 
 PRESET_TIPS = {
+    "Scoring for Year 2026-2027": "2026-2027 weights: defensive actions, creator stats, and keeper duels/saves tuned up.",
     "recommended": "Trim volume stats and rebalance the top-fifty mix across all three seasons, with a forward scoring boost.",
     "Sarims Preset": "Manual tuning from current scoring: more defensive actions and creator stats; keepers unchanged.",
     "recommended-reduce-team-dependency": "Same rebalance, but cuts clean sheets and other team-result stats in favour of individual actions.",
@@ -602,7 +607,7 @@ export default function ScoringLab() {
           active={Object.keys(multipliers).length === 0}
           title={PRESET_TIPS.current}
         >
-          Current scoring
+          __CURRENT_SCORING_LABEL__
         </Pill>
         {PRESET_ORDER.map((name) => (
           <span key={name}>
@@ -841,7 +846,7 @@ def collect_presets(
     lever_categories = {lever["c"] for lever in payload["levers"]}
     presets: Dict[str, Dict[str, Dict[str, float]]] = {}
     tips: Dict[str, str] = {
-        "current": "League weights as entered in Fantrax today.",
+        "current": "Fantrax league weights for the 2025-2026 season.",
     }
     skipped: List[str] = []
     for path in sorted(presets_dir.glob("*.json")):
@@ -886,6 +891,9 @@ def resolve_required_levers(output_dir: Path, presets_dir: Path) -> List[str]:
     hand_tuned = presets_dir / "sarims-preset.json"
     if hand_tuned.exists() and hand_tuned not in paths:
         paths.append(hand_tuned)
+    scoring_2027 = presets_dir / "scoring-2026-2027.json"
+    if scoring_2027.exists() and scoring_2027 not in paths:
+        paths.append(scoring_2027)
     seasons = validate.seasons_available(output_dir)
     if seasons:
         latest = presets_dir / ("recommended-%s.json" % seasons[-1])
@@ -926,6 +934,7 @@ def main() -> None:
     source = source.replace("__PRESETS__", json.dumps(presets, indent=2))
     source = source.replace("__PRESET_TIPS__", json.dumps(preset_tips, indent=2))
     source = source.replace("__PRESET_ORDER__", json.dumps(preset_order))
+    source = source.replace("__CURRENT_SCORING_LABEL__", CURRENT_SCORING_LABEL)
 
     CANVAS_DIR.mkdir(parents=True, exist_ok=True)
     target = CANVAS_DIR / args.name
