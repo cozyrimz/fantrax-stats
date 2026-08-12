@@ -234,6 +234,32 @@ HTML = r"""<!DOCTYPE html>
     .preset-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     .preset-row-secondary { padding-top: 4px; border-top: 1px solid var(--border); }
     .preset-group-label { font-size: 0.82rem; color: var(--muted); min-width: 7rem; }
+    .weights-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0;
+    }
+    .weights-panel summary {
+      padding: 12px 16px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      list-style: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .weights-panel summary::-webkit-details-marker { display: none; }
+    .weights-panel summary::before {
+      content: "▸ ";
+      color: var(--muted);
+      font-size: 0.85em;
+    }
+    .weights-panel[open] summary::before { content: "▾ "; }
+    .weights-panel[open] summary { border-bottom: 1px solid var(--border); }
+    .weights-trailing { margin-left: auto; font-weight: 400; color: var(--muted); font-size: 0.82rem; }
+    .weights-panel .card-bd { padding: 14px 16px 16px; }
   </style>
 </head>
 <body>
@@ -262,8 +288,11 @@ HTML = r"""<!DOCTYPE html>
       </div>
     </div>
 
-    <div class="card section">
-      <div class="card-hd">Category weights <span style="float:right;font-weight:400;color:var(--muted)">current → proposed</span></div>
+    <details class="weights-panel section" id="weights-panel">
+      <summary>
+        Category weights
+        <span class="weights-trailing">current → proposed</span>
+      </summary>
       <div class="card-bd">
         <div class="filter-row">
           <span id="pos-tabs"></span>
@@ -272,7 +301,7 @@ HTML = r"""<!DOCTYPE html>
         </div>
         <div id="sliders"></div>
       </div>
-    </div>
+    </details>
 
     <div class="section">
       <h2>Value curve by position</h2>
@@ -544,6 +573,7 @@ HTML = r"""<!DOCTYPE html>
       activePreset = "";
       document.querySelectorAll("[data-preset]").forEach(el => el.classList.remove("active"));
       updatePresetDetails("");
+      document.getElementById("weights-panel").open = true;
       render();
     }
 
@@ -925,8 +955,6 @@ HTML = r"""<!DOCTYPE html>
       render();
     });
 
-    document.getElementById("reset-all").addEventListener("click", () => applyPreset("current"));
-
     document.getElementById("sliders").addEventListener("input", e => {
       const range = e.target.closest('input[data-role="range"]');
       if (range) {
@@ -966,8 +994,7 @@ HTML = r"""<!DOCTYPE html>
       updatePresetDetails("");
       render();
     } else {
-      const valid = activePreset === "current" || PRESETS[activePreset];
-      applyPreset(valid ? activePreset : DEFAULT_PRESET);
+      applyPreset(DEFAULT_PRESET);
     }
   </script>
 </body>

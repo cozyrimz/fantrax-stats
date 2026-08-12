@@ -311,6 +311,7 @@ import {
   useCanvasState,
   useHostTheme,
 } from "cursor/canvas";
+import { useEffect } from "react";
 
 type Lever = { c: string; name: string; highImpact?: boolean };
 type Player = { n: string; p: string; a: string; y: string; g: number; b: number; s: number[] };
@@ -597,6 +598,17 @@ export default function ScoringLab() {
     "lab-hide-low-impact",
     false,
   );
+  const [weightsOpen, setWeightsOpen] = useCanvasState<boolean>("lab-weights-open", false);
+
+  useEffect(() => {
+    if (Object.keys(multipliers).length === 0) {
+      const preset = PRESETS[activePreset] ? activePreset : __CURRENT_YEAR_PRESET__;
+      if (preset !== "current" && PRESETS[preset]) {
+        setMultipliers(PRESETS[preset]);
+        setActivePreset(preset);
+      }
+    }
+  }, []);
 
   const visibleLevers = DATA.levers.filter((lever) => {
     if (DATA.weights[position]?.[lever.c] === undefined) return false;
@@ -629,6 +641,7 @@ export default function ScoringLab() {
       return next;
     });
     setActivePreset("");
+    setWeightsOpen(true);
   };
 
   const applyPreset = (name: string) => {
@@ -739,10 +752,32 @@ export default function ScoringLab() {
         ) : null}
       </Stack>
 
-      <Card>
-        <CardHeader trailing={<Text size="small" tone="tertiary">current → proposed</Text>}>
+      <details
+        open={weightsOpen}
+        onToggle={(event) => setWeightsOpen(event.currentTarget.open)}
+        style={{
+          background: "var(--canvas-surface, #fff)",
+          border: "1px solid var(--canvas-border, #e0e0e0)",
+          borderRadius: 8,
+          padding: 0,
+        }}
+      >
+        <summary
+          style={{
+            padding: "12px 16px",
+            fontWeight: 600,
+            cursor: "pointer",
+            listStyle: "none",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
           Category weights
-        </CardHeader>
+          <Text size="small" tone="tertiary" style={{ marginLeft: "auto" }}>
+            current → proposed
+          </Text>
+        </summary>
         <CardBody>
           <Stack gap={12}>
             <Row gap={8} wrap align="center">
@@ -780,7 +815,7 @@ export default function ScoringLab() {
             </Stack>
           </Stack>
         </CardBody>
-      </Card>
+      </details>
 
       <Stack gap={8}>
         <H2>Value curve by position</H2>
