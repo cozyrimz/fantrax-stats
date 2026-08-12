@@ -467,17 +467,11 @@ HTML = r"""<!DOCTYPE html>
 
     let charts = {};
 
-    Chart.register({
-      id: "syncSeasonAxis",
-      afterUpdate(chart) {
-        const y = chart.scales.y;
-        const y1 = chart.scales.y1;
-        if (y && y1) {
-          y1.min = y.min;
-          y1.max = y.max;
-        }
-      },
-    });
+    function seasonTickStep(maxSeason) {
+      if (maxSeason <= 300) return 50;
+      if (maxSeason <= 750) return 100;
+      return 200;
+    }
 
     function loadJson(key, fallback) {
       try { return JSON.parse(localStorage.getItem(key)) || fallback; } catch { return fallback; }
@@ -868,6 +862,11 @@ HTML = r"""<!DOCTYPE html>
         Math.round(100 * (DATA.league.teams * (DATA.league.baseline[p] || 0)) / (DATA.league.teams * DATA.league.starters))
       );
 
+      const peakPerGame = Math.max(0, ...curveDatasets.flatMap(d => d.data));
+      const peakSeason = peakPerGame * seasonGames;
+      const seasonStep = seasonTickStep(peakSeason || seasonGames);
+      const axisMaxPerGame = (Math.ceil((peakSeason || seasonStep) / seasonStep) * seasonStep) / seasonGames;
+
       upsertChart("curve-chart", "line", {
         data: { labels, datasets: curveDatasets },
         options: {
@@ -887,15 +886,38 @@ HTML = r"""<!DOCTYPE html>
           scales: {
             y: {
               position: "left",
+              min: 0,
+              max: axisMaxPerGame,
               title: { display: true, text: `Points per game (÷ ${seasonGames})` },
+              grid: { drawOnChartArea: true },
+              ticks: {
+                callback(value) {
+                  const n = Number(value);
+                  return n % 1 === 0 ? String(n) : n.toFixed(1);
+                },
+              },
             },
             y1: {
               position: "right",
-              grid: { drawOnChartArea: false },
+              min: 0,
+              max: axisMaxPerGame,
               title: { display: true, text: "Season fantasy points" },
+              grid: { display: false, drawTicks: false },
+              border: { display: true },
+              afterBuildTicks(axis) {
+                const top = axis.max * seasonGames;
+                const ticks = [];
+                for (let season = 0; season <= top + 0.001; season += seasonStep) {
+                  ticks.push({ value: season / seasonGames, label: String(season) });
+                }
+                axis.ticks = ticks;
+              },
               ticks: {
-                callback(value) {
-                  return Math.round(Number(value) * seasonGames);
+                autoSkip: false,
+                callback(value, index, ticks) {
+                  const tick = ticks[index];
+                  if (tick && tick.label !== undefined) return tick.label;
+                  return String(Math.round(Number(value) * seasonGames));
                 },
               },
             },
